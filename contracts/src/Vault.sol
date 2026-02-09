@@ -76,6 +76,8 @@ contract AletheiaSimpleVault {
         emit DepositCategorized(msg.sender, amount - remaining);
     }
 
+    function withdraw(bytes calldata proof, bytes32 signature, uint256 nonce, bytes32 nullifierHash, address recepient, uint8 chainSelector) public {}
+
     /**
      * @dev Helper to see exactly how many "bills" a user has.
      */
