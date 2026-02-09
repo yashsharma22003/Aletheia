@@ -4,7 +4,10 @@ type = "bin"
 authors = [""]
 
 [dependencies]
-mpt = { tag = "v0.2.0", git = "https://github.com/radni/mpt-noir" }
+mpt = { path = "./lib/mpt" }
+ecrecover = { path = "./lib/ecrecover" }
+keccak256 = { git = "https://github.com/noir-lang/keccak256", tag = "v0.1.0" }
+poseidon = { git = "https://github.com/noir-lang/poseidon", tag = "v0.1.1" }
 
 [workspace]
 members = ["."]
