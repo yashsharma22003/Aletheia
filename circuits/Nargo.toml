@@ -1,0 +1,10 @@
+[package]
+name = "circuits"
+type = "bin"
+authors = [""]
+
+[dependencies]
+mpt = { tag = "v0.2.0", git = "https://github.com/radni/mpt-noir" }
+
+[workspace]
+members = ["."]
