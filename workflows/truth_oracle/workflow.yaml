@@ -1,0 +1,27 @@
+# ==========================================================================
+# CRE WORKFLOW SETTINGS FILE
+# ==========================================================================
+# Workflow-specific settings for CRE CLI targets.
+# Each target defines user-workflow and workflow-artifacts groups.
+# Settings here override CRE Project Settings File values.
+
+# ==========================================================================
+staging-settings:
+  user-workflow:
+    workflow-name: "truth_oracle-staging"
+  workflow-artifacts:
+    workflow-path: "./src/main.ts"
+    config-path: "./config.staging.json"
+    secrets-path: ""
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: https://ethereum-sepolia-rpc.publicnode.com
+
+# ==========================================================================
+production-settings:
+  user-workflow:
+    workflow-name: "truth_oracle-production"
+  workflow-artifacts:
+    workflow-path: "./src/main.ts"
+    config-path: "./config.production.json"
+    secrets-path: ""

@@ -1,0 +1,34 @@
+{
+  "chains": [
+    {
+      "chainId": "11155111",
+      "chainName": "ethereum-testnet-sepolia",
+      "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+      "registryAddress": "0x0000000000000000000000000000000000000000"
+    },
+    {
+      "chainId": "11155420",
+      "chainName": "ethereum-testnet-sepolia-optimism-1",
+      "rpcUrl": "https://sepolia.optimism.io",
+      "registryAddress": "0x0000000000000000000000000000000000000000"
+    },
+    {
+      "chainId": "421614",
+      "chainName": "ethereum-testnet-sepolia-arbitrum-1",
+      "rpcUrl": "https://sepolia-rollup.arbitrum.io/rpc",
+      "registryAddress": "0x0000000000000000000000000000000000000000"
+    },
+    {
+      "chainId": "43113",
+      "chainName": "avalanche-testnet-fuji",
+      "rpcUrl": "https://api.avax-test.network/ext/bc/C/rpc",
+      "registryAddress": "0x0000000000000000000000000000000000000000"
+    },
+    {
+      "chainId": "84532",
+      "chainName": "ethereum-testnet-sepolia-base-1",
+      "rpcUrl": "https://sepolia.base.org",
+      "registryAddress": "0x0000000000000000000000000000000000000000"
+    }
+  ]
+}

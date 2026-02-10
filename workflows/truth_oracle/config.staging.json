@@ -1,0 +1,10 @@
+{
+  "chains": [
+    {
+      "chainId": "11155111",
+      "chainName": "ethereum-testnet-sepolia",
+      "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+      "registryAddress": "0x9FcdD7C57C515B5aec910e7E7B6B0d62A09000bd"
+    }
+  ]
+}
