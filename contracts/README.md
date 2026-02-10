@@ -1,66 +1,40 @@
-## Foundry
+# Aletheia Contracts
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+Solidity smart contracts for the Aletheia Truth Oracle, built with [Foundry](https://book.getfoundry.sh/).
 
-Foundry consists of:
+## Contracts
 
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+| Contract | Description |
+|----------|-------------|
+| `TruthRegistry.sol` | CRE-compliant contract that stores state roots per chain/block. Inherits `ReceiverTemplate`. |
+| `ReceiverTemplate.sol` | Abstract base for CRE consumer contracts. Handles forwarder validation and ERC165. |
+| `IReceiver.sol` | Interface for receiving Chainlink CRE reports. |
+| `IERC165.sol` | Standard ERC165 interface for contract introspection. |
 
-## Documentation
+## Deployment
 
-https://book.getfoundry.sh/
+### Sepolia (Staging)
 
-## Usage
-
-### Build
-
-```shell
-$ forge build
+```bash
+source .env
+forge script script/DeployTruthRegistry.s.sol \
+  --rpc-url https://ethereum-sepolia-rpc.publicnode.com \
+  --broadcast --verify \
+  --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
-### Test
+**Current deployment:** `0x9FcdD7C57C515B5aec910e7E7B6B0d62A09000bd`
 
-```shell
-$ forge test
-```
+### Forwarder Addresses
 
-### Format
+| Environment | Contract | Address |
+|-------------|----------|---------|
+| Simulation | MockKeystoneForwarder | `0x15fC6ae953E024d975e77382eEeC56A9101f9F88` |
+| Production | KeystoneForwarder | `0xF8344CFd5c43616a4366C34E3EEE75af79a74482` |
 
-```shell
-$ forge fmt
-```
+## Build & Test
 
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
+```bash
+forge build
+forge test
 ```
