@@ -16,6 +16,14 @@ staging-settings:
   rpcs:
     - chain-name: ethereum-testnet-sepolia
       url: https://ethereum-sepolia-rpc.publicnode.com
+    - chain-name: ethereum-testnet-sepolia-base-1
+      url: https://sepolia.base.org
+    - chain-name: ethereum-testnet-sepolia-optimism-1
+      url: https://sepolia.optimism.io
+    - chain-name: ethereum-testnet-sepolia-arbitrum-1
+      url: https://sepolia-rollup.arbitrum.io/rpc
+    - chain-name: avalanche-testnet-fuji
+      url: https://api.avax-test.network/ext/bc/C/rpc
 
 # ==========================================================================
 production-settings:

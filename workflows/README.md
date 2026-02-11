@@ -72,7 +72,10 @@ CRE_TARGET=staging-settings cre workflow deploy truth_oracle
 
 ## Deployed Contracts
 
-| Network | Contract | Address |
-|---------|----------|---------|
-| Sepolia | TruthRegistry | `0x9FcdD7C57C515B5aec910e7E7B6B0d62A09000bd` |
-| Sepolia | MockForwarder | `0x15fC6ae953E024d975e77382eEeC56A9101f9F88` |
+| Network | Chain ID | Mock Forwarder Address | Registry Address |
+|---------|----------|------------------------|------------------|
+| Ethereum Sepolia | 11155111 | `0x15fC6ae953E024d975e77382eEeC56A9101f9F88` | `0x9FcdD7C57C515B5aec910e7E7B6B0d62A09000bd` |
+| Base Sepolia | 84532 | `0x82300Bd7c3958625581Cc2f77BC6464dcECDF3e5` | *Pending Deployment* |
+| OP Sepolia | 11155420 | `0xA2888380DFf3704A8AB6D1Cd1A8f69c15FEA5EE3` | *Pending Deployment* |
+| Arbitrum Sepolia | 421614 | `0xD41263567dDfEAD91504199B8c6c87371e83Ca5d` | *Pending Deployment* |
+| Avalanche Fuji | 43113 | `0x2e7371A5D032489e4f602360216d8d898a4c10805963` | *Pending Deployment* |
