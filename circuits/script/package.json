@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@zkpassport/poseidon2": "^0.6.2",
+    "ethers": "^6.16.0"
+  }
+}

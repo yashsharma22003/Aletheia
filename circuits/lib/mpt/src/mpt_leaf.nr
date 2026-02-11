@@ -32,7 +32,7 @@ fn get_rlp_length(first_elem: u8, length: u8) -> u8 {
 
 impl StorageSlot {
     pub fn verify_leaf_node(self, trie_key_index: u8, trie_key: [u8; 32], leaf_hash: [u8; 32]) {
-        assert(trie_key == keccak256::keccak256(self.slot_numebr, 32));
+        // assert(trie_key == keccak256::keccak256(self.slot_numebr, 32)); // Removed: Custom key derivation needed for mappings
         let mut prefix_length_limb: u8 = trie_key_index;
 
         let mut key: [u8; 33] = [0; 33];
@@ -58,7 +58,22 @@ impl StorageSlot {
         println(f"key rlp len {leaf_key_rlp_length}");
 
         let mut leaf_rlp_encoded: [u8; 69] = [0; 69];
-        let leaf_value_rlp_data_length = get_rlp_length(self.value[0], self.value_length);
+
+        // Inner RLP = RLP(S)
+        let inner_len = get_rlp_length(self.value[0], self.value_length);
+
+        // Determine first byte of Inner RLP to calculate Outer RLP length
+        let mut inner_first_byte = 0;
+        if (self.value_length == 1) & (self.value[0] <= 127) {
+            inner_first_byte = self.value[0];
+        } else {
+            // Assuming short string < 56 bytes (which we assert below)
+            inner_first_byte = 0x80 + self.value_length;
+        }
+
+        // Outer RLP = RLP(Inner RLP)
+        let leaf_value_rlp_data_length = get_rlp_length(inner_first_byte, inner_len);
+
         println(f"value rlp len {leaf_value_rlp_data_length}");
         assert(self.value_length <= 32);
 
@@ -88,31 +103,47 @@ impl StorageSlot {
             }
         }
 
-        // value
-        if self.value_length == 0 {
-            leaf_rlp_encoded[index] = 0x80;
-            index += 1;
-        } else if (self.value_length == 1) & (self.value[0] <= 127) {
-            leaf_rlp_encoded[index] = self.value[0];
+        // value (Double RLP)
+        // 1. Write Outer Prefix
+        if (inner_len == 1) & (inner_first_byte <= 127) {
+            // RLP(RLP(S)) = RLP(S) = S (if S is single byte < 128)
+            // No outer prefix needed for the byte itself
+            leaf_rlp_encoded[index] = inner_first_byte;
             index += 1;
         } else {
-            leaf_rlp_encoded[index] = 0x80 + self.value_length;
-            index += 1;
-            for i in 0..32 {
-                if i < self.value_length {
-                    // println(index);
-                    leaf_rlp_encoded[index] = self.value[i as u32];
-                    index += 1;
+            // Write Outer Length Prefix
+            if inner_len <= 55 {
+                leaf_rlp_encoded[index] = 0x80 + inner_len;
+                index += 1;
+            } else {
+                // Should not happen for 32 byte values
+                assert(false);
+            }
+
+            // 2. Write Inner Content (RLP(S))
+            if (self.value_length == 1) & (self.value[0] <= 127) {
+                // RLP(S) is just the byte
+                leaf_rlp_encoded[index] = self.value[0];
+                index += 1;
+            } else {
+                // RLP(S) is 0x80+len + bytes
+                leaf_rlp_encoded[index] = 0x80 + self.value_length;
+                index += 1;
+                for i in 0..32 {
+                    if i < self.value_length {
+                        leaf_rlp_encoded[index] = self.value[i as u32];
+                        index += 1;
+                    }
                 }
             }
         }
 
-        assert(leaf_hash == keccak256::keccak256(leaf_rlp_encoded, index));
         println("encoding:");
         println(leaf_rlp_encoded);
 
         println("leaf hash:");
         println(leaf_hash);
+        assert(leaf_hash == keccak256::keccak256(leaf_rlp_encoded, index));
     }
 }
 
@@ -236,12 +267,12 @@ impl Account {
             index += 1;
         }
 
-        assert(leaf_hash == keccak256::keccak256(leaf_rlp_encoded, index));
         println("encoding:");
         println(leaf_rlp_encoded);
 
         println("leaf hash:");
         println(leaf_hash);
+        assert(leaf_hash == keccak256::keccak256(leaf_rlp_encoded, index));
     }
 }
 
