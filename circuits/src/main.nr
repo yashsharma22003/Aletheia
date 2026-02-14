@@ -10,7 +10,8 @@ fn main(
     recipient: pub Field,
     nullifierHash: pub Field,
     vaultAddress: pub [u8; 20],
-    chequeId: pub [u8; 32],
+    chequeIdHigh: pub Field,
+    chequeIdLow: pub Field,
     denomination: pub Field,
     targetChainId: pub Field,
     // Witnesses
@@ -64,9 +65,17 @@ fn main(
     ]; // Slot 2
 
     // Base Slot: keccak(chequeId . mappingSlot)
+    let chequeIdHighBytes = chequeIdHigh.to_be_bytes::<16>();
+    let chequeIdLowBytes = chequeIdLow.to_be_bytes::<16>();
+    let mut chequeIdBytes: [u8; 32] = [0; 32];
+    for i in 0..16 {
+        chequeIdBytes[i] = chequeIdHighBytes[i];
+        chequeIdBytes[i + 16] = chequeIdLowBytes[i];
+    }
+
     let mut preimageBase: [u8; 64] = [0; 64];
     for i in 0..32 {
-        preimageBase[i] = chequeId[i];
+        preimageBase[i] = chequeIdBytes[i];
         preimageBase[i + 32] = mappingSlot[i];
     }
     let baseSlot = keccak256::keccak256(preimageBase, 64);
@@ -140,7 +149,7 @@ fn main(
         sigMsg[i] = recipientBytes[i];
     }
     for i in 0..32 {
-        sigMsg[i + 20] = chequeId[i];
+        sigMsg[i + 20] = chequeIdBytes[i];
     }
     for i in 0..8 {
         sigMsg[i + 52] = chainIdBytes[i];
@@ -191,45 +200,9 @@ fn main(
     // bool true is 1
     assert(val1[23] == 1);
 
-    // 6. Nullifier Derivation
-    // To prevent double spending, we nullify the chequeId
-    // We bind it to the targetChainId to enforce intent
-    // nullifier = poseidon(chequeId, targetChainId, owner)
-    // Note: chequeId is unique. owner is constant for cheque.
-    // But we include targetChainId so proofs are specific to a withdrawal attempt?
-    // Actually, chequeId is unique enough.
-    // Let's use: poseidon(chequeId_high, chequeId_low, targetChainId, owner)
-
-    // Split chequeId into fields for Poseidon
-    // For simplicity, let's just use the fields we have.
-    // We need to convert [u8;32] chequeId to Field(s).
-    // Let's rely on the public input `nullifierHash` being checked against a computation.
-
-    // Optimization: Just hash the chequeId bytes using keccak/pedersen if we can,
-    // or pack to field.
-    // For now, let's just hash the unique components.
-
-    // Correct Nullifier: Should be unique per cheque.
-    // If we spend the cheque, we emit nullifier(chequeId).
-    // Let's just use the signature hash as nullifier? No, deterministic.
-    // Use keccak(chequeId) as nullifier?
-    // Let's just output `chequeId` as the nullifier?
-    // It is public input.
-
-    // The contract/verifier checks if nullifier is spent.
-    // If we use chequeId as nullifier, it reveals which cheque is being spent.
-    // PRIVACY LEAK!
-
-    // Private Nullifier: H(secret, chequeId).
-    // We don't have a 'secret' other than privKey.
-    // We can use signature nullifier?
-    // User signature is unique.
-
-    // For this iteration, let's use:
-    // nullifier = Poseidon(owner, denomination, targetChainId, signature[0..31])
-    // This is unique per withdrawal attempt.
-
-    let computedNullifier =
-        poseidon::poseidon2::Poseidon2::hash([recoveredAddrField, denomination, targetChainId], 3);
+    let computedNullifier = poseidon::poseidon2::Poseidon2::hash(
+        [recoveredAddrField, denomination, targetChainId, chequeIdHigh, chequeIdLow],
+        5,
+    );
     assert(computedNullifier == nullifierHash);
 }
