@@ -3,183 +3,181 @@ import {
     getNetwork,
     Runner,
     type Runtime,
-    type NodeRuntime,
-    TxStatus,
+    type EVMLog,
     bytesToHex,
-    hexToBase64,
-    encodeCallMsg,
     prepareReportRequest,
     protoBigIntToBigint,
-    LATEST_BLOCK_NUMBER,
+    blockNumber as toProtoBlockNumber,
+    hexToBase64,
 } from '@chainlink/cre-sdk'
-import { encodeAbiParameters, parseAbiParameters, type Hex } from 'viem'
+import { parseAbiParameters, parseAbiItem, encodeAbiParameters, decodeEventLog, type Hex } from 'viem'
 import { z } from 'zod'
 
-// Configuration Schema
+// Valid Null Address Constant
+const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+// 1. Updated Configuration Schema to match your JSON (Single Array of Chains)
 const ConfigSchema = z.object({
     chains: z.array(z.object({
         chainId: z.string(),
-        chainName: z.string(), // e.g. "ethereum-testnet-sepolia"
-        rpcUrl: z.string(),
+        chainName: z.string(),
+        rpcUrl: z.string().optional(),
         registryAddress: z.string(),
+        chequeContractAddress: z.string(),
     })),
 });
 
 type Config = z.infer<typeof ConfigSchema>;
 
-// Data Bundle returned from node consensus
-interface StateRootData {
-    chainId: string;
-    blockNumber: string;
-    blockHash: string;   // bytes32 hex — using block hash as the "state root"
+// 2. Event Definition
+const CHEQUE_CREATED_EVENT_ABI = parseAbiItem(
+    'event ChequeCreated(bytes32 indexed chequeId, address indexed owner, uint256 denomination, uint256 targetChainId, uint256 blockNumber)'
+);
+
+// Helper to decode log manually since we are using raw logTrigger
+const decodeLog = (log: EVMLog) => {
+    // Convert topics: SDK gives bytes (Uint8Array), viem expects Hex strings
+    const topics = log.topics.map(t => bytesToHex(t));
+    const data = bytesToHex(log.data);
+
+    return decodeEventLog({
+        abi: [CHEQUE_CREATED_EVENT_ABI],
+        data: data,
+        topics: topics as [Hex, ...Hex[]]
+    });
 }
 
-// Fetch block headers using CRE SDK's EVMClient (works inside WASM sandbox)
-function fetchBlockHeaders(
-    runtime: Runtime<Config>,
-    config: Config,
-): StateRootData[] {
-    const results: StateRootData[] = [];
-
-    for (const chainConfig of config.chains) {
-        try {
-            const network = getNetwork({
-                chainFamily: 'evm',
-                chainSelectorName: chainConfig.chainName,
-                isTestnet: true,
-            });
-
-            if (!network) {
-                console.log(`[TruthOracle] Network not found for ${chainConfig.chainName}, skipping`);
-                continue;
-            }
-
-            const evmClient = new cre.capabilities.EVMClient(network.chainSelector.selector);
-
-            // Get latest block header via CRE capability (goes through simulator's RPC)
-            const headerReply = evmClient.headerByNumber(runtime, {
-                blockNumber: LATEST_BLOCK_NUMBER,
-            }).result();
-
-            if (!headerReply.header) {
-                console.log(`[TruthOracle] No header returned for ${chainConfig.chainName}`);
-                continue;
-            }
-
-            const header = headerReply.header;
-            const blockNum = header.blockNumber ? protoBigIntToBigint(header.blockNumber) : 0n;
-            const blockHash = bytesToHex(header.hash);
-
-            console.log(`[TruthOracle] Fetched ${chainConfig.chainName}: Block #${blockNum}, Hash ${blockHash}`);
-
-            results.push({
-                chainId: chainConfig.chainId,
-                blockNumber: blockNum.toString(),
-                blockHash: blockHash,
-            });
-
-        } catch (error) {
-            console.log(`[TruthOracle] Failed to fetch ${chainConfig.chainName}: ${error}`);
-        }
-    }
-
-    return results;
-}
-
-// Write state roots to a specific chain's registry via CRE writeReport
-function writeToRegistry(
-    runtime: Runtime<Config>,
-    chainConfig: Config['chains'][0],
-    data: StateRootData[],
-): void {
-    if (data.length === 0) {
-        console.log("[TruthOracle] No data to write.");
-        return;
-    }
-
+// 3. Workflow Logic Refactored to Match Reference Implementation
+const onLogTrigger = (runtime: Runtime<Config>, log: EVMLog): string => {
+    // 1. Parse Event Data manually
+    let decodedEvent;
     try {
+        decodedEvent = decodeLog(log);
+    } catch (e) {
+        console.error("Failed to decode log:", e);
+        return "Error: Failed to decode log";
+    }
+
+    const { targetChainId, blockNumber } = decodedEvent.args;
+
+    console.log(`[TruthOracle] Event Detected! Target Chain: ${targetChainId}, Block: ${blockNumber}`);
+
+    // 2. Identify Source Chain (The one with the valid chequeContractAddress matching log address)
+    const logAddressHex = bytesToHex(log.address).toLowerCase();
+
+    const sourceChain = runtime.config.chains.find(c =>
+        c.chequeContractAddress &&
+        c.chequeContractAddress.toLowerCase() === logAddressHex
+    );
+
+    if (!sourceChain) {
+        return `Error: Could not identify source chain for contract ${logAddressHex}`;
+    }
+
+    // 3. Fetch Header (Read) from Source Chain
+    const network = getNetwork({
+        chainFamily: 'evm',
+        chainSelectorName: sourceChain.chainName,
+        isTestnet: true
+    });
+
+    if (!network) return `Error: Network not found for ${sourceChain.chainName}`;
+
+    const client = new cre.capabilities.EVMClient(network.chainSelector.selector);
+
+    // Use BigInt conversion for Input (toProtoBlockNumber)
+    const headerResult = client.headerByNumber(runtime, {
+        blockNumber: toProtoBlockNumber(blockNumber)
+    }).result();
+
+    if (!headerResult.header) {
+        return `Error: Could not fetch header for block ${blockNumber}`;
+    }
+
+    const header = headerResult.header;
+    const actualBlockNum = header.blockNumber ? protoBigIntToBigint(header.blockNumber) : 0n;
+    const blockHash = bytesToHex(header.hash);
+
+    console.log(`[TruthOracle] Fetched Header from ${sourceChain.chainName}: Block #${actualBlockNum}, Hash: ${blockHash}`);
+
+    // 4. Encode & Write (Write) to Target Chain Registry
+    const targetChain = runtime.config.chains.find(c => c.chainId === targetChainId.toString());
+
+    if (!targetChain) {
+        return `Error: Target chain ID ${targetChainId} not found in config`;
+    }
+
+    // Prepare payload for Registry.update(uint256[], uint256[], bytes32[])
+    const chainIds = [BigInt(sourceChain.chainId)]; // The ID of the chain we fetched FROM
+    const blockNumbers = [actualBlockNum];
+    const blockHashes = [blockHash as Hex];
+
+    const reportPayload = encodeAbiParameters(
+        parseAbiParameters('uint256[], uint256[], bytes32[]'),
+        [chainIds, blockNumbers, blockHashes],
+    );
+
+    const reportRequest = prepareReportRequest(reportPayload);
+    const report = runtime.report(reportRequest).result();
+
+    const targetNetwork = getNetwork({
+        chainFamily: 'evm',
+        chainSelectorName: targetChain.chainName,
+        isTestnet: true
+    });
+
+    if (!targetNetwork) return `Error: Target network not found for ${targetChain.chainName}`;
+
+    const targetClient = new cre.capabilities.EVMClient(targetNetwork.chainSelector.selector);
+
+    console.log(`[TruthOracle] Writing report to ${targetChain.chainName} (${targetChain.registryAddress})...`);
+
+    const writeResult = targetClient.writeReport(runtime, {
+        receiver: targetChain.registryAddress,
+        report: report,
+        gasConfig: { gasLimit: '500000' },
+    }).result();
+
+    return `Success: Report written. Tx Status: ${writeResult.txStatus}`;
+}
+
+// 4. Initialization Logic - Multi-Chain Support
+const initWorkflow = (config: Config) => {
+    // 1. Filter valid chains (those with a contract address)
+    const validChains = config.chains.filter(
+        c => c.chequeContractAddress &&
+            c.chequeContractAddress !== NULL_ADDRESS &&
+            c.chequeContractAddress !== "0x0"
+    );
+
+    if (validChains.length === 0) {
+        throw new Error("No chains found with a valid 'chequeContractAddress' to listen on.");
+    }
+
+    console.log(`Initializing workflow for ${validChains.length} chains: ${validChains.map(c => c.chainName).join(', ')}`);
+
+    // 2. Map each valid chain to a handler
+    return validChains.map(chain => {
         const network = getNetwork({
             chainFamily: 'evm',
-            chainSelectorName: chainConfig.chainName,
+            chainSelectorName: chain.chainName,
             isTestnet: true,
         });
 
         if (!network) {
-            console.log(`[TruthOracle] Network not found for write: ${chainConfig.chainName}`);
-            return;
+            throw new Error(`Network ${chain.chainName} not valid`);
         }
 
         const evmClient = new cre.capabilities.EVMClient(network.chainSelector.selector);
 
-        // ABI-encode raw (uint256[], uint256[], bytes32[]) for onReport to decode
-        const chainIds = data.map(d => BigInt(d.chainId));
-        const blockNumbers = data.map(d => BigInt(d.blockNumber));
-        const blockHashes = data.map(d => d.blockHash as Hex);
-
-        const reportPayload = encodeAbiParameters(
-            parseAbiParameters('uint256[], uint256[], bytes32[]'),
-            [chainIds, blockNumbers, blockHashes],
+        // Return the handler for this specific chain
+        return cre.handler(
+            evmClient.logTrigger({
+                addresses: [hexToBase64(chain.chequeContractAddress as Hex)],
+            }),
+            onLogTrigger
         );
-
-        console.log(`[TruthOracle] Encoding report for ${chainConfig.chainName}...`);
-
-        // Create a signed report
-        const reportRequest = prepareReportRequest(reportPayload);
-        const report = runtime.report(reportRequest).result();
-
-        console.log(`[TruthOracle] Writing report to ${chainConfig.chainName} registry at ${chainConfig.registryAddress}...`);
-
-        // Write the report to the chain
-        const writeResult = evmClient.writeReport(runtime, {
-            receiver: chainConfig.registryAddress,
-            report: report,
-            gasConfig: { gasLimit: '500000' },
-        }).result();
-
-        console.log(`[TruthOracle] Write result for ${chainConfig.chainName}: status=${writeResult.txStatus}`);
-
-        if (writeResult.txHash) {
-            console.log(`[TruthOracle] Tx hash: ${bytesToHex(writeResult.txHash)}`);
-        }
-
-        if (writeResult.errorMessage) {
-            console.log(`[TruthOracle] Error: ${writeResult.errorMessage}`);
-        }
-
-    } catch (error) {
-        console.log(`[TruthOracle] Write failed for ${chainConfig.chainName}: ${error}`);
-    }
-}
-
-const onCronTrigger = (runtime: Runtime<Config>, _payload: any): string => {
-    console.log(`[TruthOracle] Triggered by Cron`);
-    const config = runtime.config;
-
-    // 1. Fetch block headers from all source chains via CRE capabilities
-    const blockData = fetchBlockHeaders(runtime, config);
-    console.log(`[TruthOracle] Fetched ${blockData.length} block headers`);
-
-    if (blockData.length === 0) {
-        console.log("[TruthOracle] No block data fetched, nothing to update.");
-        return "No data";
-    }
-
-    // 2. Write updates to each registry
-    for (const chainConfig of config.chains) {
-        writeToRegistry(runtime, chainConfig, blockData);
-    }
-
-    return "Success";
-}
-
-const initWorkflow = (config: Config) => {
-    const cron = new cre.capabilities.CronCapability();
-    return [
-        cre.handler(
-            cron.trigger({ schedule: "0 */30 * * * *" }),
-            onCronTrigger
-        )
-    ];
+    });
 }
 
 export async function main() {

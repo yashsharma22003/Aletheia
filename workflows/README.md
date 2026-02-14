@@ -47,15 +47,20 @@ CRE_ETH_PRIVATE_KEY=<your_funded_sepolia_key>
 
 ### Simulate
 
+> **Note**: Simulation runs locally and requires a real transaction hash to "mock" the event trigger. Deploying to the network enables full automation.
+
 ```bash
 # Dry-run (no on-chain writes)
-CRE_TARGET=staging-settings cre workflow simulate truth_oracle --trigger-index 0 --non-interactive
+# Provide a Tx Hash from any supported chain (Optimism, Avalanche, etc.)
+cre workflow simulate truth_oracle --target staging-settings --evm-tx-hash <YOUR_TX_HASH>
 
 # With broadcast (real on-chain writes)
-CRE_TARGET=staging-settings cre workflow simulate truth_oracle --trigger-index 0 --non-interactive --broadcast
+cre workflow simulate truth_oracle --target staging-settings --evm-tx-hash <YOUR_TX_HASH> --broadcast
 ```
 
 ### Deploy to DON
+
+Deploying enables **Multi-Chain Automation**. The workflow will automatically listen to `ChequeCreated` events on **all** configured chains (Ethereum Sepolia, OP Sepolia, Arbitrum Sepolia, Avalanche Fuji).
 
 ```bash
 CRE_TARGET=staging-settings cre workflow deploy truth_oracle
