@@ -15,6 +15,7 @@ contract ComplianceCashier is ReceiverTemplate {
         uint96 denomination;
         uint64 targetChainId;
         bool isCompliant;
+        uint256 blockNumber;
     }
 
     // Unique Cheque ID => Cheque Details
@@ -34,7 +35,8 @@ contract ComplianceCashier is ReceiverTemplate {
         bytes32 indexed chequeId,
         address indexed owner,
         uint256 denomination,
-        uint256 targetChainId
+        uint256 targetChainId,
+        uint256 blockNumber
     );
 
     event ComplianceUpdated(bytes32 indexed chequeId, bool isCompliant);
@@ -114,10 +116,11 @@ contract ComplianceCashier is ReceiverTemplate {
             owner: owner,
             denomination: denom,
             targetChainId: targetChainId,
-            isCompliant: true // Default to false
+            isCompliant: true, // Default to true for testing,
+            blockNumber: block.number
         });
 
-        emit ChequeCreated(chequeId, owner, denom, targetChainId);
+        emit ChequeCreated(chequeId, owner, denom, targetChainId, block.number);
     }
 
     /**
