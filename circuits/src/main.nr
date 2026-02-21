@@ -155,8 +155,33 @@ fn main(
         sigMsg[i + 52] = chainIdBytes[i];
     }
 
-    let msgHash = keccak256::keccak256(sigMsg, 60);
-    let recoveredAddrField = ecrecover::ecrecover(pubKeyX, pubKeyY, signature, msgHash);
+    let rawMsgHash = keccak256::keccak256(sigMsg, 60);
+
+    // Apply EIP-191 personal_sign prefix for MetaMask compatibility:
+    // ethMsgHash = keccak256("\x19Ethereum Signed Message:\n32" || rawMsgHash)
+    // Prefix is 28 bytes: \x19 (1) + "Ethereum Signed Message:\n" (25) + "32" (2)
+    // Total: 28 + 32 = 60 bytes
+    let mut ethMsg: [u8; 60] = [0; 60];
+    ethMsg[0] = 0x19;
+    // "Ethereum Signed Message:\n" (25 bytes)
+    let eth_prefix: [u8; 25] = [
+        69, 116, 104, 101, 114, 101, 117, 109, 32,  // "Ethereum "
+        83, 105, 103, 110, 101, 100, 32,             // "Signed "
+        77, 101, 115, 115, 97, 103, 101, 58, 10      // "Message:\n"
+    ];
+    for i in 0..25 {
+        ethMsg[i + 1] = eth_prefix[i];
+    }
+    // "32" (ASCII)
+    ethMsg[26] = 51; // '3'
+    ethMsg[27] = 50; // '2'
+    // rawMsgHash (32 bytes)
+    for i in 0..32 {
+        ethMsg[i + 28] = rawMsgHash[i];
+    }
+
+    let ethMsgHash = keccak256::keccak256(ethMsg, 60);
+    let recoveredAddrField = ecrecover::ecrecover(pubKeyX, pubKeyY, signature, ethMsgHash);
     let recoveredAddrBytes = recoveredAddrField.to_be_bytes::<20>();
 
     // Assert Owner in Slot 0 matches Recovered Address

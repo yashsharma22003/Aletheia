@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aletheia Prover — Storage Proof Generator</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-card: #1a1a28;
+      --bg-input: #0f0f1a;
+      --border: #2a2a3d;
+      --border-focus: #6366f1;
+      --text-primary: #e4e4f0;
+      --text-secondary: #8888a0;
+      --text-muted: #55556a;
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.2);
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.1);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.1);
+      --error: #ef4444;
+      --error-bg: rgba(239, 68, 68, 0.1);
+      --gradient-1: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: var(--gradient-1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+
+    .header p {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .btn {
+      padding: 0.6rem 1.25rem;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--gradient-1);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--accent);
+    }
+
+    .btn-outline:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-sm {
+      padding: 0.4rem 0.85rem;
+      font-size: 0.8rem;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      transition: border-color 0.3s;
+    }
+
+    .card:hover {
+      border-color: rgba(99, 102, 241, 0.3);
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-title .step {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: var(--accent);
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 0.35rem;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-family: 'Inter', monospace;
+      font-size: 0.85rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .status-box {
+      padding: 0.85rem 1rem;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      display: none;
+      margin-top: 1rem;
+      word-break: break-all;
+    }
+
+    .status-box.show {
+      display: block;
+    }
+
+    .status-box.info {
+      background: var(--accent-glow);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+
+    .status-box.success {
+      background: var(--success-bg);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--success);
+    }
+
+    .status-box.error {
+      background: var(--error-bg);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--error);
+    }
+
+    .status-box.warning {
+      background: var(--warning-bg);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: var(--warning);
+    }
+
+    .result-panel {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      margin-top: 1rem;
+      display: none;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .result-panel.show {
+      display: block;
+    }
+
+    .result-panel pre {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .result-field {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+    }
+
+    .result-field:last-child {
+      border-bottom: none;
+    }
+
+    .result-field .label {
+      color: var(--text-secondary);
+    }
+
+    .result-field .value {
+      color: var(--accent);
+      font-family: monospace;
+      font-size: 0.78rem;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 0.5rem;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .server-url-bar {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .server-url-bar input {
+      flex: 1;
+      padding: 0.6rem 0.85rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-family: monospace;
+      font-size: 0.85rem;
+    }
+
+    .server-url-bar input:focus {
+      outline: none;
+      border-color: var(--border-focus);
+    }
+
+    .footer {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .actions-row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .hint {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+      line-height: 1.4;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .mode-toggle {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.35rem;
+    }
+
+    .mode-toggle button {
+      flex: 1;
+      padding: 0.55rem;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mode-toggle button.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    .wallet-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .wallet-status {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+    }
+
+    .wallet-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--error);
+    }
+
+    .wallet-dot.connected {
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <div class="header">
+      <h1>⚡ Aletheia Prover</h1>
+      <p>Generate ZK storage proofs for your cheques — powered by Noir & Barretenberg</p>
+    </div>
+
+    <!-- Server URL -->
+    <div class="server-url-bar">
+      <input type="text" id="serverUrl" value="http://localhost:3000" placeholder="Prover service URL">
+      <button class="btn btn-outline btn-sm" onclick="checkHealth()">Check</button>
+    </div>
+
+    <!-- Mode Toggle -->
+    <div class="mode-toggle">
+      <button id="modeWallet" class="active" onclick="setMode('wallet')">🦊 Wallet Signing</button>
+      <button id="modeKey" onclick="setMode('key')">🔑 Private Key (Test)</button>
+    </div>
+
+    <!-- Wallet Bar (wallet mode) -->
+    <div class="wallet-bar" id="walletBar">
+      <div class="wallet-status">
+        <div class="wallet-dot" id="walletDot"></div>
+        <span id="walletText">Not connected</span>
+      </div>
+      <button class="btn btn-primary btn-sm" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+    </div>
+
+    <!-- Step 1: Cheque Details -->
+    <div class="card">
+      <div class="card-title">
+        <span class="step">1</span>
+        Cheque Details
+      </div>
+
+      <div class="form-group">
+        <label>RPC URL (chain where contract is deployed)</label>
+        <input type="text" id="rpcUrl" value="https://sepolia.optimism.io" placeholder="https://...">
+      </div>
+
+      <div class="form-group">
+        <label>Contract Address (ComplianceCashier)</label>
+        <input type="text" id="contractAddress" value="0xf44d925116aD93Ddf3A634eCcFF01a59f4b2679b" placeholder="0x...">
+      </div>
+
+      <div class="form-group" id="depositorGroup">
+        <label>Depositor Address</label>
+        <input type="text" id="depositorAddress" placeholder="0x... (auto-filled from wallet)">
+      </div>
+
+      <div class="form-group">
+        <label>Recipient Address</label>
+        <input type="text" id="recipient" placeholder="0x... (who receives the cheque)">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nonce</label>
+          <input type="number" id="nonce" value="0" min="0">
+        </div>
+        <div class="form-group">
+          <label>Denomination</label>
+          <input type="number" id="denomination" value="1000">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Target Chain ID</label>
+        <input type="number" id="targetChainId" value="11155111" placeholder="11155111">
+      </div>
+    </div>
+
+    <!-- Step 2: Private Key (test mode only) -->
+    <div class="card hidden" id="privateKeyCard">
+      <div class="card-title">
+        <span class="step">2</span>
+        Private Key (Test Mode)
+      </div>
+      <div class="form-group">
+        <label>Private Key</label>
+        <input type="password" id="privateKey" placeholder="0x... (used for signing, never stored)">
+        <div class="hint">🔒 Sent to local prover server only. Used to derive signature + pubKey via personal_sign
+          format, then discarded.</div>
+      </div>
+    </div>
+
+    <!-- Step 2: Sign Message (wallet mode only) -->
+    <div class="card" id="signCard">
+      <div class="card-title">
+        <span class="step">2</span>
+        Sign Message
+      </div>
+
+      <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 1rem;">
+        Compute the cheque ID and sign the message hash with MetaMask (personal_sign).
+        Your private key never leaves the wallet.
+      </p>
+
+      <button class="btn btn-primary" id="signBtn" onclick="signWithWallet()" disabled>
+        ✍️ Sign with Wallet
+      </button>
+
+      <div class="result-panel" id="signResult"></div>
+      <div class="status-box" id="signStatus"></div>
+    </div>
+
+    <!-- Step 3: Generate -->
+    <div class="card">
+      <div class="card-title">
+        <span class="step">3</span>
+        Generate
+      </div>
+
+      <div class="actions-row">
+        <button class="btn btn-outline" id="witnessBtn" onclick="generateWitnessOnly()" disabled>
+          📋 Witness Only
+        </button>
+        <button class="btn btn-primary" id="proveBtn" onclick="requestProof()" disabled>
+          🚀 Generate Full Proof
+        </button>
+      </div>
+
+      <div class="status-box" id="statusBox"></div>
+    </div>
+
+    <!-- Result -->
+    <div class="card hidden" id="resultCard">
+      <div class="card-title">
+        <span class="step">✓</span>
+        Result
+      </div>
+      <div id="resultContent"></div>
+      <div class="result-panel" id="proofResult"></div>
+    </div>
+
+    <div class="footer">
+      Aletheia Protocol — Zero-Knowledge Storage Proofs
+    </div>
+  </div>
+
+  <script>
+    // ── State ──
+    let mode = 'wallet';
+    let connectedAddress = null;
+    let walletSignature = null; // 65-byte hex from personal_sign
+    let currentJobId = null;
+    let pollInterval = null;
+
+    const SERVER = () => document.getElementById('serverUrl').value.replace(/\/$/, '');
+    const val = (id) => document.getElementById(id).value;
+
+    // ── Mode Toggle ──
+    function setMode(m) {
+      mode = m;
+      document.getElementById('modeWallet').classList.toggle('active', m === 'wallet');
+      document.getElementById('modeKey').classList.toggle('active', m === 'key');
+      document.getElementById('walletBar').classList.toggle('hidden', m === 'key');
+      document.getElementById('privateKeyCard').classList.toggle('hidden', m === 'wallet');
+      document.getElementById('signCard').classList.toggle('hidden', m === 'key');
+      if (m === 'key') {
+        document.getElementById('proveBtn').disabled = false;
+        document.getElementById('witnessBtn').disabled = false;
+      } else {
+        document.getElementById('proveBtn').disabled = !walletSignature;
+        document.getElementById('witnessBtn').disabled = !walletSignature;
+      }
+    }
+
+    // ── Status Helpers ──
+    function showStatus(msg, type = 'info') {
+      const box = document.getElementById('statusBox');
+      box.className = `status-box show ${type}`;
+      box.innerHTML = msg;
+    }
+    function showSignStatus(msg, type = 'info') {
+      const box = document.getElementById('signStatus');
+      box.className = `status-box show ${type}`;
+      box.innerHTML = msg;
+    }
+
+    // ── Health Check ──
+    async function checkHealth() {
+      try {
+        const res = await fetch(`${SERVER()}/api/health`);
+        const data = await res.json();
+        if (data.status === 'ok') {
+          showStatus(`✅ Server OK — nargo: ${data.nargo ? '✓' : '✗'}, bb: ${data.bb ? '✓' : '✗'}`, 'success');
+        } else {
+          showStatus('⚠️ Server returned non-ok status', 'warning');
+        }
+      } catch (e) {
+        showStatus(`❌ Cannot reach server: ${e.message}`, 'error');
+      }
+    }
+
+    // ── Wallet Connection ──
+    async function connectWallet() {
+      if (!window.ethereum) {
+        showSignStatus('❌ MetaMask not found. Please install it.', 'error');
+        return;
+      }
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        connectedAddress = accounts[0];
+        document.getElementById('walletDot').classList.add('connected');
+        document.getElementById('walletText').textContent =
+          `${connectedAddress.slice(0, 6)}...${connectedAddress.slice(-4)}`;
+        document.getElementById('connectBtn').textContent = 'Connected';
+        document.getElementById('depositorAddress').value = connectedAddress;
+        document.getElementById('signBtn').disabled = false;
+      } catch (e) {
+        showSignStatus(`❌ Wallet connection failed: ${e.message}`, 'error');
+      }
+    }
+
+    // ── Sign with Wallet (personal_sign) ──
+    async function signWithWallet() {
+      if (!connectedAddress) {
+        showSignStatus('❌ Connect your wallet first', 'error');
+        return;
+      }
+      const recipient = val('recipient');
+      if (!recipient) {
+        showSignStatus('❌ Please fill in the recipient address first', 'error');
+        return;
+      }
+
+      try {
+        // 1. Get the raw message hash from the server
+        showSignStatus('<span class="spinner"></span> Computing cheque ID and message hash...', 'info');
+        const paramsRes = await fetch(`${SERVER()}/api/sign-params`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            depositorAddress: connectedAddress,
+            nonce: parseInt(val('nonce')),
+            recipient: recipient,
+            targetChainId: parseInt(val('targetChainId')),
+          }),
+        });
+        const paramsData = await paramsRes.json();
+        if (paramsData.error) throw new Error(paramsData.error);
+
+        // 2. Use personal_sign — MetaMask adds "\x19Ethereum Signed Message:\n32" prefix
+        // The raw messageHash (32 bytes hex) is passed as the message to sign
+        showSignStatus('<span class="spinner"></span> Waiting for wallet signature (MetaMask)...', 'info');
+        const sig = await window.ethereum.request({
+          method: 'personal_sign',
+          params: [paramsData.messageHash, connectedAddress],
+        });
+
+        // 3. Store and display
+        walletSignature = sig;
+        const panel = document.getElementById('signResult');
+        panel.className = 'result-panel show';
+        panel.innerHTML = `
+        <div class="result-field"><span class="label">Cheque ID</span><span class="value">${paramsData.chequeId.slice(0, 18)}...</span></div>
+        <div class="result-field"><span class="label">Message Hash</span><span class="value">${paramsData.messageHash.slice(0, 18)}...</span></div>
+        <div class="result-field"><span class="label">Signature</span><span class="value">${sig.slice(0, 18)}...</span></div>
+      `;
+        showSignStatus('✅ Signed! You can now generate a proof.', 'success');
+
+        // 4. Enable generate buttons
+        document.getElementById('proveBtn').disabled = false;
+        document.getElementById('witnessBtn').disabled = false;
+      } catch (e) {
+        showSignStatus(`❌ ${e.message}`, 'error');
+      }
+    }
+
+    // ── Build request body ──
+    function getDepositor() {
+      return mode === 'wallet' ? connectedAddress : val('depositorAddress');
+    }
+
+    function buildBody() {
+      const depositor = getDepositor();
+      if (!depositor) {
+        showStatus(mode === 'wallet' ? '❌ Connect wallet first' : '❌ Enter depositor address', 'error');
+        return null;
+      }
+      for (const id of ['rpcUrl', 'contractAddress', 'recipient']) {
+        if (!val(id)) { showStatus(`❌ Please fill in: ${id}`, 'error'); return null; }
+      }
+
+      const body = {
+        rpcUrl: val('rpcUrl'),
+        contractAddress: val('contractAddress'),
+        depositorAddress: depositor,
+        recipient: val('recipient'),
+        nonce: parseInt(val('nonce')),
+        targetChainId: parseInt(val('targetChainId')),
+        denomination: parseInt(val('denomination')),
+      };
+
+      if (mode === 'key') {
+        const pk = val('privateKey');
+        if (!pk) { showStatus('❌ Enter your private key', 'error'); return null; }
+        body.privateKey = pk;
+      } else {
+        if (!walletSignature) {
+          showStatus('❌ Please sign the message first (Step 2)', 'error');
+          return null;
+        }
+        body.signature = walletSignature;
+      }
+      return body;
+    }
+
+    // ── Witness Only ──
+    async function generateWitnessOnly() {
+      const body = buildBody();
+      if (!body) return;
+      try {
+        showStatus('<span class="spinner"></span> Generating witness (fetching on-chain proofs)...', 'info');
+        const res = await fetch(`${SERVER()}/api/witness`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        showStatus('✅ Witness generated!', 'success');
+        document.getElementById('resultCard').classList.remove('hidden');
+        document.getElementById('resultContent').innerHTML = `
+        <div class="result-field"><span class="label">Root</span><span class="value">${data.publicInputs?.root?.slice(0, 18) || 'N/A'}...</span></div>
+        <div class="result-field"><span class="label">Nullifier Hash</span><span class="value">${data.publicInputs?.nullifierHash?.slice(0, 18) || 'N/A'}...</span></div>
+      `;
+        const panel = document.getElementById('proofResult');
+        panel.className = 'result-panel show';
+        panel.innerHTML = `<pre>${data.proverToml.slice(0, 3000)}${data.proverToml.length > 3000 ? '\n... (truncated)' : ''}</pre>`;
+      } catch (e) {
+        showStatus(`❌ ${e.message}`, 'error');
+      }
+    }
+
+    // ── Full Proof ──
+    async function requestProof() {
+      const body = buildBody();
+      if (!body) return;
+      try {
+        showStatus('<span class="spinner"></span> Submitting proof job...', 'info');
+        const res = await fetch(`${SERVER()}/api/prove`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        currentJobId = data.jobId;
+        showStatus(`<span class="spinner"></span> Job ${data.jobId.slice(0, 8)}... submitted — polling...`, 'info');
+
+        document.getElementById('resultCard').classList.remove('hidden');
+        document.getElementById('resultContent').innerHTML = `
+        <div class="result-field"><span class="label">Job ID</span><span class="value">${data.jobId}</span></div>
+        <div class="result-field"><span class="label">Status</span><span class="value" id="jobStatus">${data.status}</span></div>
+      `;
+
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(pollJob, 3000);
+      } catch (e) {
+        showStatus(`❌ ${e.message}`, 'error');
+      }
+    }
+
+    // ── Poll ──
+    async function pollJob() {
+      if (!currentJobId) return;
+      try {
+        const res = await fetch(`${SERVER()}/api/prove/${currentJobId}`);
+        const data = await res.json();
+        const el = document.getElementById('jobStatus');
+        if (el) el.textContent = data.status;
+
+        if (data.status === 'completed') {
+          clearInterval(pollInterval);
+          showStatus('✅ Proof generated and verified!', 'success');
+          const panel = document.getElementById('proofResult');
+          panel.className = 'result-panel show';
+          panel.innerHTML = `<pre>${JSON.stringify({
+            proof: data.proof?.slice(0, 200) + '...',
+            publicInputs: data.publicInputs
+          }, null, 2)}</pre>`;
+        }
+        if (data.status === 'failed') {
+          clearInterval(pollInterval);
+          showStatus(`❌ Failed: ${data.error}`, 'error');
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    // ── Auto-connect if previously permitted ──
+    window.addEventListener('load', async () => {
+      if (window.ethereum) {
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          if (accounts.length > 0) {
+            connectedAddress = accounts[0];
+            document.getElementById('walletDot').classList.add('connected');
+            document.getElementById('walletText').textContent =
+              `${connectedAddress.slice(0, 6)}...${connectedAddress.slice(-4)}`;
+            document.getElementById('connectBtn').textContent = 'Connected';
+            document.getElementById('depositorAddress').value = connectedAddress;
+            document.getElementById('signBtn').disabled = false;
+          }
+        } catch { }
+      }
+    });
+  </script>
+
+</body>
+
+</html>
