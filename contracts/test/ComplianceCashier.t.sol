@@ -44,7 +44,7 @@ contract ComplianceCashierTest is Test {
         // 3. Verify On-Chain State matches Simulation
 
         // Cheque 0 (1000)
-        (address owner0, uint96 denom0, uint64 chain0, bool comp0) = cashier
+        (address owner0, uint96 denom0, uint64 chain0, bool comp0, ) = cashier
             .cheques(predictedIds[0]);
         assertEq(owner0, user);
         assertEq(denom0, 1000);
@@ -52,12 +52,16 @@ contract ComplianceCashierTest is Test {
         assertEq(comp0, false);
 
         // Cheque 1 (500)
-        (address owner1, uint96 denom1, , ) = cashier.cheques(predictedIds[1]);
+        (address owner1, uint96 denom1, , , ) = cashier.cheques(
+            predictedIds[1]
+        );
         assertEq(owner1, user);
         assertEq(denom1, 500);
 
         // Cheque 2 (100)
-        (address owner2, uint96 denom2, , ) = cashier.cheques(predictedIds[2]);
+        (address owner2, uint96 denom2, , , ) = cashier.cheques(
+            predictedIds[2]
+        );
         assertEq(owner2, user);
         assertEq(denom2, 100);
 
@@ -81,7 +85,7 @@ contract ComplianceCashierTest is Test {
         cashier.onReport("", report);
 
         // Assert updated
-        (, , , bool isCompliant) = cashier.cheques(chequeId);
+        (, , , bool isCompliant, ) = cashier.cheques(chequeId);
         assertEq(isCompliant, true);
     }
 }

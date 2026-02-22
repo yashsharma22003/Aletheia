@@ -116,7 +116,7 @@ contract ComplianceCashier is ReceiverTemplate {
             owner: owner,
             denomination: denom,
             targetChainId: targetChainId,
-            isCompliant: true, // Default to true for testing,
+            isCompliant: false,
             blockNumber: block.number
         });
 
@@ -207,6 +207,54 @@ contract ComplianceCashier is ReceiverTemplate {
             nonce++;
             idx++;
             tempAmount -= unit100;
+        }
+    }
+
+    /**
+     * @notice Accepts a specific amount and breaks it into user-defined denominations.
+     * @param amount The total amount.
+     * @param targetChainId The chain ID where the user intends to withdraw.
+     * @param denominations Array of denominations (e.g., [1000, 200, 50]).
+     */
+    function customDeposit(
+        uint256 amount,
+        uint64 targetChainId,
+        uint96[] calldata denominations
+    ) external {
+        uint256 sum = 0;
+        for (uint i = 0; i < denominations.length; i++) {
+            sum += denominations[i] * (10 ** token.decimals());
+        }
+        require(sum <= amount, "Denominations sum exceeds amount");
+
+        // Transfer tokens
+        require(
+            token.transferFrom(msg.sender, address(this), sum),
+            "Transfer failed"
+        );
+
+        // Process cheques
+        for (uint i = 0; i < denominations.length; i++) {
+            _createCheque(msg.sender, denominations[i], targetChainId);
+        }
+    }
+
+    /**
+     * @notice Predicts Cheque IDs based on a custom list of denominations.
+     * @param user The user address
+     * @param denominations Array of Custom denominations
+     * @return ids The predicted Cheque IDs
+     */
+    function getPredictedCustomCheques(
+        address user,
+        uint96[] calldata denominations
+    ) external view returns (bytes32[] memory ids) {
+        ids = new bytes32[](denominations.length);
+        uint256 nonce = userNonce[user];
+
+        for (uint i = 0; i < denominations.length; i++) {
+            ids[i] = predictChequeId(user, nonce);
+            nonce++;
         }
     }
 }
