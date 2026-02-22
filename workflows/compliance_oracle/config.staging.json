@@ -1,0 +1,40 @@
+{
+  "chains": [
+    {
+      "chainId": "11155111",
+      "chainName": "ethereum-testnet-sepolia",
+      "rpcUrl": "${rpc_ethereum_testnet_sepolia}",
+      "registryAddress": "0xf0a81ab75D85D9d3Dec6784aa7b2B2fff1550195",
+      "chequeContractAddress": "0x0000000000000000000000000000000000000000"
+    },
+    {
+      "chainId": "84532",
+      "chainName": "ethereum-testnet-sepolia-base-1",
+      "rpcUrl": "${rpc_ethereum_testnet_sepolia_base_1}",
+      "registryAddress": "0x0000000000000000000000000000000000000000",
+      "chequeContractAddress": "0x0000000000000000000000000000000000000000"
+    },
+    {
+      "chainId": "11155420",
+      "chainName": "ethereum-testnet-sepolia-optimism-1",
+      "rpcUrl": "${rpc_ethereum_testnet_sepolia_optimism_1}",
+      "registryAddress": "0x0000000000000000000000000000000000000000",
+      "chequeContractAddress": "0x9AC6F9B50fc8B808a1f8f631618F89500ee2DBce"
+    },
+    {
+      "chainId": "421614",
+      "chainName": "ethereum-testnet-sepolia-arbitrum-1",
+      "rpcUrl": "${rpc_ethereum_testnet_sepolia_arbitrum_1}",
+      "registryAddress": "0x0000000000000000000000000000000000000000",
+      "chequeContractAddress": "0x0000000000000000000000000000000000000000"
+    },
+    {
+      "chainId": "43113",
+      "chainName": "avalanche-testnet-fuji",
+      "rpcUrl": "${rpc_avalanche_testnet_fuji}",
+      "registryAddress": "0x0000000000000000000000000000000000000000",
+      "chequeContractAddress": "0x0000000000000000000000000000000000000000"
+    }
+  ],
+  "kycApiUrl": "https://httpbin.org/post"
+}
