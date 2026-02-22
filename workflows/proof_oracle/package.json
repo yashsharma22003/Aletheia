@@ -1,0 +1,19 @@
+{
+    "name": "proof-oracle",
+    "version": "1.0.0",
+    "description": "CRE workflow to receive ZK proofs and write them to the ProofRegistry on-chain.",
+    "main": "dist/main.js",
+    "scripts": {
+        "postinstall": "cre-setup"
+    },
+    "dependencies": {
+        "@chainlink/cre-sdk": "*",
+        "dotenv": "^16.4.5",
+        "viem": "^2.19.4",
+        "zod": "^3.23.8"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.2",
+        "typescript": "^5.5.4"
+    }
+}
