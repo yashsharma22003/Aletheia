@@ -151,6 +151,21 @@ export async function generateProof(jobWorkDir: string): Promise<ProofResult> {
         verified = verifyResult.code === 0;
         if (verified) {
             console.log('[prover] ✅ Proof verified successfully');
+
+            // 6. Submit Proof to Chainlink CRE Proof Oracle
+            try {
+                // The Prover job holds tracking metadata. We extract chequeId to pass to the Oracle
+                const chequeIdRaw = fs.readFileSync(path.join(jobWorkDir, 'chequeId.txt'), 'utf8');
+                const chainIdRaw = fs.readFileSync(path.join(jobWorkDir, 'chainId.txt'), 'utf8');
+
+                if (chequeIdRaw && chainIdRaw) {
+                    console.log(`[prover] Dispatching valid proof to Chainlink CRE Oracle for cheque: ${chequeIdRaw}`);
+                    await submitProofToOracle(chequeIdRaw.trim(), chainIdRaw.trim(), proofHex);
+                }
+            } catch (e: any) {
+                console.log(`[prover] ⚠️ Failed to submit proof to CRE Oracle: ${e.message}`);
+            }
+
         } else {
             console.log('[prover] ⚠️ Proof verification returned code', verifyResult.code);
         }
@@ -160,6 +175,34 @@ export async function generateProof(jobWorkDir: string): Promise<ProofResult> {
     }
 
     return { proof: proofHex, verified };
+}
+
+/**
+ * Submits the generated proof to the Chainlink CRE `proof_oracle` endpoint via HTTP API.
+ * The Chainlink CRE simulator runs a local trigger proxy on port 8080 by default.
+ */
+async function submitProofToOracle(chequeId: string, targetChainId: string, proofHex: string): Promise<void> {
+    const ORACLE_HTTP_URL = process.env.PROOF_ORACLE_HTTP_URL || "http://localhost:8080/trigger";
+
+    const payload = {
+        targetChainId: Number(targetChainId),
+        chequeId: chequeId,
+        proof: proofHex
+    };
+
+    console.log(`[prover] POST ${ORACLE_HTTP_URL} -> ${JSON.stringify(payload)}`);
+
+    const response = await fetch(ORACLE_HTTP_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        throw new Error(`Oracle rejected payload. Status: ${response.status} - ${await response.text()}`);
+    }
+
+    console.log(`[prover] ✅ Oracle accepted payload: ${await response.text()}`);
 }
 
 /**

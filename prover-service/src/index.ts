@@ -4,6 +4,7 @@ import path from 'path';
 import { computeSignParams, generateWitness, WitnessParams } from './witness';
 import { generateProof, checkToolchainAvailability } from './prover';
 import { createJob, getJob, updateJob } from './jobs';
+import { decryptPayload } from './crypto/decryptor';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -86,17 +87,31 @@ app.post('/api/witness', async (req, res) => {
 // ──────────────────────────────────────────────
 // POST /api/prove
 // ──────────────────────────────────────────────
-// Kicks off async proof generation. Returns jobId for polling.
+// Kicks off async proof generation inside the CC Enclave.
+// Expects AES-GCM encrypted payload from the frontend to protect sensitive data.
 
 app.post('/api/prove', async (req, res) => {
     try {
-        const params = validateProveParams(req.body);
+        const { encryptedPayload } = req.body;
+
+        if (!encryptedPayload) {
+            res.status(400).json({ error: 'Missing encryptedPayload in request body' });
+            return;
+        }
+
+        // 1. Decrypt sensitive payload securely in TEE memory
+        console.log('[prove] Decrypting incoming AES-GCM payload...');
+        const decryptedString = decryptPayload(encryptedPayload);
+        const rawBody = JSON.parse(decryptedString);
+
+        // 2. Validate params
+        const params = validateProveParams(rawBody);
         const job = createJob();
 
-        console.log(`[prove] Job ${job.id} created, starting async pipeline...`);
+        console.log(`[prove] Job ${job.id} created, starting CC-Enclave async pipeline...`);
         res.json({ jobId: job.id, status: job.status });
 
-        // Run the pipeline in the background (don't await)
+        // 3. Run the pipeline in the background (don't await)
         runProvePipeline(job.id, params).catch((err) => {
             console.error(`[prove] Job ${job.id} pipeline error:`, err);
         });

@@ -392,6 +392,12 @@ ${storageNodes1.map(n => `[[storageProofSlot1]]\n${nodeToToml(n)}`).join('\n')}
     fs.writeFileSync(tomlPath, toml);
     console.log(`[witness] Prover.toml written to ${tomlPath}`);
 
+    // Write Tracking Metadata so the async prover can forward the proof to the final chain
+    const chequeIdPath = path.join(outputDir, 'chequeId.txt');
+    const chainIdPath = path.join(outputDir, 'chainId.txt');
+    fs.writeFileSync(chequeIdPath, chequeId);
+    fs.writeFileSync(chainIdPath, targetChainId.toString());
+
     const publicInputs = {
         root: block.stateRoot,
         recipient: BigInt(recipient).toString(),
