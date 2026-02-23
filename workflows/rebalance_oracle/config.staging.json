@@ -1,0 +1,12 @@
+{
+    "chains": [
+        {
+            "chainId": "11155111",
+            "chainName": "ethereum-testnet-sepolia",
+            "vaultAddress": "0x0000000000000000000000000000000000000000",
+            "rebalanceThreshold": "100000000000000000000",
+            "destinationChainSelector": "16015286601757825753",
+            "destinationVault": "0x1111111111111111111111111111111111111111"
+        }
+    ]
+}

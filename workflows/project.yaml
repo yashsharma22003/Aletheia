@@ -2,6 +2,7 @@ name: aletheia-workflows
 version: 0.1.0
 workflows:
   - ./truth_oracle
+  - ./rebalance_oracle
 rpcs:
   - chain-name: ethereum-testnet-sepolia
     url: https://ethereum-sepolia-rpc.publicnode.com
