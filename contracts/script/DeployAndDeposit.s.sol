@@ -17,7 +17,13 @@ contract DeployAndDeposit is Script {
         // 1. Deploy Mock Token
         MockERC20 token = new MockERC20("Test Token", "TST", 18);
 
-        // 2. Determine Forwarder Address based on Chain ID
+        // 2. Deploy Mock Router (For script compilation, real deployment will need real CCIP routers)
+        address mockRouter = address(0x123);
+
+        // 3. Deploy Vault
+        Vault vault = new Vault(address(token), mockRouter);
+
+        // 4. Determine Forwarder Address based on Chain ID
         // Using MockKeystoneForwarder addresses for simulate --broadcast
         address forwarder;
         if (block.chainid == 11155420) {
@@ -34,23 +40,26 @@ contract DeployAndDeposit is Script {
             forwarder = address(0x123); // Dummy for local/anvil
         }
 
+        // 5. Deploy Cashier
         ComplianceCashier cashier = new ComplianceCashier(
-            address(token),
+            payable(address(vault)),
             forwarder
         );
+        vault.setCashier(address(cashier));
 
-        // 3. Deploy ProofRegistry (uses the same forwarder)
+        // 6. Deploy ProofRegistry (uses the same forwarder)
         ProofRegistry registry = new ProofRegistry(forwarder);
 
         console.log("Token Deployed at:", address(token));
+        console.log("Vault Deployed at:", address(vault));
         console.log("Cashier Deployed at:", address(cashier));
         console.log("ProofRegistry Deployed at:", address(registry));
 
-        // 3. Mint & Approve
+        // 7. Mint & Approve Vault (not cashier)
         token.mint(deployer, 10000 * 10 ** 18);
-        token.approve(address(cashier), type(uint256).max);
+        token.approve(address(vault), type(uint256).max);
 
-        // 4. Get Predicted Cheques
+        // 8. Get Predicted Cheques
         uint256 amount = 1600 * 10 ** 18;
         (bytes32[] memory ids, ) = cashier.getPredictedCheques(
             deployer,
@@ -62,7 +71,7 @@ contract DeployAndDeposit is Script {
         console.logBytes32(ids[1]);
         console.logBytes32(ids[2]);
 
-        // 5. Deposit
+        // 9. Deposit
         cashier.deposit(amount, 11155111);
         console.log("Deposited 1600 units.");
 

@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {ReceiverTemplate} from "./ReceiverTemplate.sol";
 import {IERC20} from "./IERC20.sol";
+import {Vault} from "./Vault.sol";
 
 /**
  * @title ComplianceCashier
@@ -25,6 +26,10 @@ contract ComplianceCashier is ReceiverTemplate {
     // chequeId = keccak256(abi.encodePacked(user, userNonce[user]))
     mapping(address => uint256) public userNonce;
 
+    // Track consumed proof nullifiers to prevent double-spending
+    mapping(bytes32 => bool) public usedNullifiers;
+
+    Vault public immutable vault;
     IERC20 public immutable token;
     uint256 public immutable unit1000;
     uint256 public immutable unit500;
@@ -41,16 +46,23 @@ contract ComplianceCashier is ReceiverTemplate {
 
     event ComplianceUpdated(bytes32 indexed chequeId, bool isCompliant);
 
+    event FundsReleased(
+        bytes32 indexed nullifierHash,
+        address indexed recipient,
+        uint256 amount
+    );
+
     /**
      * @notice Constructor
-     * @param _token The ERC20 token to accept for deposits
+     * @param _vault The Vault contract to accept deposits
      * @param _forwarderAddress The address of the CRE Forwarder
      */
     constructor(
-        address _token,
+        address payable _vault,
         address _forwarderAddress
     ) ReceiverTemplate(_forwarderAddress) {
-        token = IERC20(_token);
+        vault = Vault(payable(address(_vault)));
+        token = vault.token();
         uint8 decimals = token.decimals();
 
         // Calculate units based on decimals
@@ -69,10 +81,7 @@ contract ComplianceCashier is ReceiverTemplate {
         require(amount >= unit100, "Minimum deposit is 100 units");
 
         // Transfer tokens from user to vault
-        require(
-            token.transferFrom(msg.sender, address(this), amount),
-            "Transfer failed"
-        );
+        vault.deposit(msg.sender, amount);
 
         uint256 remaining = amount;
 
@@ -124,16 +133,42 @@ contract ComplianceCashier is ReceiverTemplate {
     }
 
     /**
-     * @notice Processes a validated CRE report containing compliance updates.
+     * @notice Processes a validated CRE report containing compliance or release updates.
      * @dev Called by ReceiverTemplate.onReport after forwarder validation passes.
-     * @param report ABI-encoded (bytes32 chequeId, bool compliant).
+     * @param report ABI-encoded payload. First parameter is uint8 reportType.
+     *   Type 0 (Compliance): (uint8, bytes32 chequeId, bool status)
+     *   Type 1 (Release): (uint8, bytes32 nullifierHash, address recipient, uint256 amount, bool status)
      */
     function _processReport(bytes calldata report) internal override {
-        // Decode the report payload
-        (bytes32 chequeId, bool status) = abi.decode(report, (bytes32, bool));
+        // Decode only the first parameter (32-byte padded uint8) to determine routing
+        uint8 reportType = abi.decode(report, (uint8));
 
-        cheques[chequeId].isCompliant = status;
-        emit ComplianceUpdated(chequeId, status);
+        if (reportType == 0) {
+            (, bytes32 chequeId, bool status) = abi.decode(
+                report,
+                (uint8, bytes32, bool)
+            );
+            cheques[chequeId].isCompliant = status;
+            emit ComplianceUpdated(chequeId, status);
+        } else if (reportType == 1) {
+            (
+                ,
+                bytes32 nullifierHash,
+                address recipient,
+                uint256 amount,
+                bool status
+            ) = abi.decode(report, (uint8, bytes32, address, uint256, bool));
+
+            require(status == true, "CRE validation failed");
+            require(!usedNullifiers[nullifierHash], "Nullifier already used");
+
+            usedNullifiers[nullifierHash] = true;
+            vault.withdraw(recipient, amount);
+
+            emit FundsReleased(nullifierHash, recipient, amount);
+        } else {
+            revert("Invalid report logic");
+        }
     }
 
     /**
@@ -227,11 +262,8 @@ contract ComplianceCashier is ReceiverTemplate {
         }
         require(sum <= amount, "Denominations sum exceeds amount");
 
-        // Transfer tokens
-        require(
-            token.transferFrom(msg.sender, address(this), sum),
-            "Transfer failed"
-        );
+        // Transfer tokens to vault
+        vault.deposit(msg.sender, sum);
 
         // Process cheques
         for (uint i = 0; i < denominations.length; i++) {
