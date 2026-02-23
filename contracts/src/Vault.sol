@@ -20,10 +20,12 @@ contract Vault {
     address public owner;
     bool public isPaused;
     IRouterClient public router;
+    address public forwarder;
 
     mapping(uint64 => bool) public allowlistedChains;
 
     event CashierUpdated(address oldCashier, address newCashier);
+    event ForwarderUpdated(address oldForwarder, address newForwarder);
     event Paused(address account);
     event Unpaused(address account);
     event RebalanceInitiated(
@@ -51,6 +53,12 @@ contract Vault {
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert Unauthorized();
+        _;
+    }
+
+    modifier onlyOwnerOrForwarder() {
+        if (msg.sender != owner && msg.sender != forwarder)
+            revert Unauthorized();
         _;
     }
 
@@ -88,6 +96,17 @@ contract Vault {
         address oldCashier = cashier;
         cashier = _cashier;
         emit CashierUpdated(oldCashier, _cashier);
+    }
+
+    /**
+     * @notice Links an authorized Chainlink CRE Forwarder to the Vault
+     * @param _forwarder The address of the Forwarder
+     */
+    function setForwarder(address _forwarder) external onlyOwner {
+        if (_forwarder == address(0)) revert ZeroAddress();
+        address oldForwarder = forwarder;
+        forwarder = _forwarder;
+        emit ForwarderUpdated(oldForwarder, _forwarder);
     }
 
     /**
@@ -171,7 +190,7 @@ contract Vault {
         uint256 _amount
     )
         external
-        onlyOwner
+        onlyOwnerOrForwarder
         onlyAllowlistedChain(_destinationChainSelector)
         whenNotPaused
         returns (bytes32 messageId)

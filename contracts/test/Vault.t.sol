@@ -14,6 +14,7 @@ contract VaultTest is Test {
     address public cashier = address(0x1);
     address public user = address(0x2);
     address public relayer = address(0x3);
+    address public forwarder = address(0x4);
 
     function setUp() public {
         token = new MockERC20("Test Token", "TST", 18);
@@ -39,6 +40,19 @@ contract VaultTest is Test {
         vm.prank(user);
         vm.expectRevert(Vault.Unauthorized.selector);
         vault.setCashier(address(0x4));
+    }
+
+    function testSetForwarder() public {
+        assertEq(vault.forwarder(), address(0)); // initially un-set
+
+        vault.setForwarder(forwarder);
+        assertEq(vault.forwarder(), forwarder);
+    }
+
+    function testSetForwarderUnauthorized() public {
+        vm.prank(user);
+        vm.expectRevert(Vault.Unauthorized.selector);
+        vault.setForwarder(forwarder);
     }
 
     function testDeposit() public {
@@ -137,6 +151,41 @@ contract VaultTest is Test {
 
         // Fee should have been paid
         assertEq(address(vault).balance, 1 ether - router.MOCK_FEE());
+    }
+
+    function testRebalanceCrossChainByForwarder() public {
+        uint256 amount = 1000 * 10 ** 18;
+        uint64 destChain = 16015286601757825753; // Sepolia
+
+        // Admin allowlists the chain and sets forwarder
+        vault.allowlistDestinationChain(destChain, true);
+        vault.setForwarder(forwarder);
+
+        // Cashier deposits into Vault
+        vm.prank(cashier);
+        vault.deposit(user, amount);
+
+        // Forwarder (CRE Service) triggers cross-chain rebalance autonomosly
+        vm.prank(forwarder);
+        vault.rebalanceCrossChain(destChain, address(0x4), amount);
+
+        // Tokens should be sent to the router
+        assertEq(token.balanceOf(address(vault)), 0);
+        assertEq(token.balanceOf(address(router)), amount);
+    }
+
+    function testRebalanceCrossChainUnauthorized() public {
+        uint256 amount = 1000 * 10 ** 18;
+        uint64 destChain = 16015286601757825753; // Sepolia
+
+        // Admin allowlists the chain and sets forwarder
+        vault.allowlistDestinationChain(destChain, true);
+        vault.setForwarder(forwarder);
+
+        // Normal user attempts to trigger cross-chain rebalance (should revert)
+        vm.prank(user);
+        vm.expectRevert(Vault.Unauthorized.selector);
+        vault.rebalanceCrossChain(destChain, address(0x4), amount);
     }
 
     function testRebalanceNotAllowlisted() public {
