@@ -722,6 +722,46 @@
       return body;
     }
 
+    // ── Encryption (AES-GCM) ──
+    // Matches the backend symmetric key for the mock environment
+    const RAW_KEY = 'san_marino_mock_encryption_key_1234567890';
+    
+    async function encryptPayload(plaintext) {
+      const enc = new TextEncoder();
+      const rawKey = enc.encode(RAW_KEY);
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', rawKey);
+      
+      const key = await window.crypto.subtle.importKey(
+        'raw',
+        hashBuffer,
+        { name: 'AES-GCM' },
+        false,
+        ['encrypt']
+      );
+
+      const iv = window.crypto.getRandomValues(new Uint8Array(12));
+      const encryptedBuffer = await window.crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv },
+        key,
+        enc.encode(plaintext)
+      );
+
+      const encryptedBytes = new Uint8Array(encryptedBuffer);
+      const ciphertext = encryptedBytes.slice(0, encryptedBytes.length - 16);
+      const authTag = encryptedBytes.slice(encryptedBytes.length - 16);
+      
+      const finalBuffer = new Uint8Array(iv.length + authTag.length + ciphertext.length);
+      finalBuffer.set(iv, 0);
+      finalBuffer.set(authTag, iv.length);
+      finalBuffer.set(ciphertext, iv.length + authTag.length);
+      
+      let binary = '';
+      for (let i = 0; i < finalBuffer.length; i++) {
+        binary += String.fromCharCode(finalBuffer[i]);
+      }
+      return window.btoa(binary);
+    }
+
     // ── Witness Only ──
     async function generateWitnessOnly() {
       const body = buildBody();
@@ -755,11 +795,15 @@
       const body = buildBody();
       if (!body) return;
       try {
+        showStatus('<span class="spinner"></span> Encrypting payload...', 'info');
+        const plaintextJSON = JSON.stringify(body);
+        const encryptedPayload = await encryptPayload(plaintextJSON);
+
         showStatus('<span class="spinner"></span> Submitting proof job...', 'info');
         const res = await fetch(`${SERVER()}/api/prove`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+          body: JSON.stringify({ encryptedPayload }),
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error);
