@@ -67,7 +67,7 @@ impl StorageSlot {
         if (self.value_length == 1) & (self.value[0] <= 127) {
             inner_first_byte = self.value[0];
         } else {
-            // Assuming short string < 56 bytes (which we assert below)
+            // Because values can be up to 32 bytes, len <= 55 always holds true
             inner_first_byte = 0x80 + self.value_length;
         }
 

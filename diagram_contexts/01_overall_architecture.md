@@ -13,15 +13,14 @@ The diagram should clearly delineate four distinct environments where processing
 4. **Confidential Compute (Hardware TEE):** Secure Enclave (AWS Nitro/Marlin Oyster) running the Prover backend.
 
 ## 3. Key Actors & Components
-*   **Employer Wallet:** Deposits ERC20 funds.
-*   **Employee Frontend:** Generates ZK witnesses and encrypts data via AES-GCM.
+*   **Employer Wallet:** Deposits ERC20 funds and generates ZK witnesses + SNARK proofs locally.
+*   **Employee Frontend:** Signs claim payloads and submits them to the Verification Service.
 *   **ComplianceCashier (Smart Contract - Source Chain):** Holds employer funds and emits `ChequeCreated`. Starts with `isCompliant = false`.
 *   **ProofRegistry (Smart Contract - Target Chain):** Stores valid Zero-Knowledge proof hashes.
 *   **Compliance Oracle (Chainlink CRE):** Listens for `ChequeCreated`, performs Confidential HTTP KYC checks, encrypts the result in-memory, and writes it back to the Source Chain.
-*   **Prover Service (CC TEE):** Express API running in an enclave. Decrypts employee ZK witness, runs Barretenberg C++ (`bb prove`) to generate the SNARK, and immediately purges plaintext data.
-*   **Proof Oracle (Chainlink CRE):** Receives the SNARK proof from the Prover Service and executes a CCIP cross-chain transaction to write the proof to the Target Chain's `ProofRegistry`.
-*   **Sync Relayer:** Asynchronous bot that polls the User's claim request, checks `isCompliant == true`, verifies the Proof on the Target chain, and executes the final meta-transaction to release funds from the Cashier to the Employee.
+*   **Proof Oracle (Chainlink CRE):** Receives the SNARK proof from the Employer and executes a CCIP cross-chain transaction to write the proof to the Target Chain's `ProofRegistry`.
+*   **Verification Service (CC TEE):** Express API running in an enclave. Receives the employee's claim (signature + nullifierHash). Verifies the proof natively inside the enclave against the `ProofRegistry`, verifies the employee's signature, and executes the final meta-transaction to release funds from the Cashier to the Employee.
 
 ## 4. Key Security Themes to Highlight
-*   **Data Residency/Privacy:** Emphasize that raw employee data *only* exists in the Employee Frontend and the CC TEE. It never touches the Oracles or the Blockchain.
+*   **Data Residency/Privacy:** Emphasize that raw employee data *only* exists during the Employer's local proof generation and within the Verification Service (CC TEE). The `chequeId` remains private because verification happens natively inside the enclave rather than on-chain.
 *   **Zero-Knowledge Barrier:** Show how the on-chain payout is detached from the employer's deposit via the ZK Proof and Nullifier hash.

@@ -18,11 +18,11 @@ We use the Chainlink Custom Runtime Extension (CRE) to run WASM scripts inside t
 *   **Compliance Oracle**: Listens for `ChequeCreated` events. It uses **Confidential HTTP** to ping a KYC API, encrypts the compliance status inside the hardware enclave using AES-GCM, and writes the ciphertext back on-chain.
 *   **Proof Oracle**: An HTTP-triggered workflow that acts as a secure bridge. Once the Off-Chain Prover generates the massive 50MB Noir SNARK proof, it pushes it to this oracle, which cleanly formats it and executes a Cross-Chain CCIP transaction to write the Proof into the `ProofRegistry` on the destination network.
 
-### 3. The Prover Service (Confidential Compute TEE)
-Because Barretenberg (`bb prove`) and Noir (`nargo`) are native C++ binaries that cannot run inside the Chainlink WASM node, the proving pipeline is decoupled into a **Standalone Hardware TEE** (e.g., AWS Nitro CLI, Marlin Oyster, or Phala Network).
-*   The Express backend intercepts AES-GCM encrypted payloads from the frontend.
-*   It securely provisions its decryption key via Remote Attestation, unwrapping the payload *only* inside the secure TEE memory boundary.
-*   It generates the ZK Proof, purges the plaintext metadata, and posts the Proof to the Proof Oracle. No plaintext is ever leaked to the host OS.
+### 3. Proof Generation & TEE Verification Service
+Because Barretenberg (`bb prove`) and Noir (`nargo`) are native C++ binaries that require significant compute, the proving pipeline is handled locally by the **Employer** at deposit time.
+*   The **Employer** generates the 50MB proof natively on their infrastructure and pushes it to the Chainlink Proof Oracle to be stored in the `ProofRegistry`.
+*   When the **Employee** wants to claim their funds, they submit a signature to the **TEE Verification Service** (e.g., AWS Nitro CLI, Marlin Oyster, or Phala Network).
+*   The Verification Service fetches the proof natively, verifies it inside the secure TEE memory boundary, and if valid, posts the `nullifierHash` to release the funds. No plaintext `chequeId` is leaked to the host OS.
 
 ### 4. Noir Zero-Knowledge Circuits
 The Noir circuit enforces the structural integrity of the payroll system:
@@ -37,7 +37,7 @@ The Noir circuit enforces the structural integrity of the payroll system:
 ```mermaid
 flowchart TB
     %% Entities
-    Employer([🏢 Employer Wallet])
+    Employer([🏢 Employer Wallet/Backend])
     Employee([👨‍💻 Employee Frontend])
     
     subgraph Blockchains ["⛓️ Smart Contracts (EVM)"]
@@ -51,8 +51,7 @@ flowchart TB
     end
     
     subgraph TEE ["🔒 CC Hardware Enclave"]
-        Prover[Prover Service API]
-        Relayer[Settlement Relayer]
+        Verifier[TEE Verification Service]
     end
 
     %% Phase 1
@@ -62,16 +61,15 @@ flowchart TB
     Oracle1 -- "4. Save Encrypted Status" --> Source
 
     %% Phase 2
-    Employee -- "5. AES-Encrypted ZK Witness" --> Prover
-    Prover -. "6. Decrypt in Memory\n& Compile SNARK" .-> Prover
-    Prover -- "7. Output Plaintext ZKP" --> Oracle2
-    Oracle2 -- "8. CCIP Cross-Chain Tx" --> Target
+    Employer -. "5. Generate SNARK Proof" .-> Employer
+    Employer -- "6. Output Plaintext ZKP" --> Oracle2
+    Oracle2 -- "7. CCIP Cross-Chain Tx" --> Target
 
     %% Phase 3
-    Employee -- "9. Claim Funds (Nullifier)" --> Relayer
-    Relayer -- "10. Check Target Proof" --> Target
-    Relayer -- "11. Execute Payout" --> Source
-    Source -- "12. Release ERC20" --> Employee
+    Employee -- "8. Claim Funds (Signature)" --> Verifier
+    Verifier -- "9. Fetch & Verify Target Proof" --> Target
+    Verifier -- "10. Execute Payout (Nullifier)" --> Source
+    Source -- "11. Release ERC20" --> Employee
 
     %% Clean Styles
     classDef default fill:#1E1E1E,stroke:#4CAF50,stroke-width:2px,color:#FFF;
@@ -92,7 +90,7 @@ The Aletheia protocol is engineered to provide "Global Confidentiality" across a
 
 1.  **On-Chain Privacy (ZK Proofs):** The Noir SNARK circuit ensures that when the employee claims their funds on the destination chain, the smart contract does not learn *which* cheque they are cashing, preventing observers from linking the deposit to the withdrawal.
 2.  **Oracle Privacy (Confidential HTTP):** Chainlink's CRE Enclave guarantees that the query to the off-chain KYC provider cannot be intercepted. The oracle *encrypts* the result inside the hardware boundary before posting it to the blockchain.
-3.  **Compute Privacy (Standalone TEE):** Because the Prover Service relies on heavy C++ binaries, it runs inside an AWS Nitro/Marlin Oyster enclave. The frontend encrypts the ZK witness (salary data) with AES-GCM, and the Prover Service only decrypts it in protected memory, generates the proof, and dumps the plaintext, meaning host OS administrators cannot scrape employee data.
+3.  **Compute Privacy (Standalone TEE):** The **Employer** handles proof generation locally. The Verification Service runs inside an AWS Nitro/Marlin Oyster enclave. The frontend submits the claim to the Verification Service, which only runs the Noir verifier in protected memory and dumps the plaintext, meaning host OS administrators cannot scrape employee claim data or link it to the `chequeId`.
 
 ---
 
@@ -114,4 +112,4 @@ To prevent double-spend attacks where a user claims the identical salary multipl
 
 ### 4. Enterprise Data Residency (GDPR/CCPA)
 Because European enterprises cannot broadcast raw employee data globally:
-*   **The Nuance:** By pushing the AES-GCM encryption step natively to the *Employee's Browser* and only executing the Decryption inside the Transient TEE, Aletheia legally bypasses "Data Exfiltration" regulations. No persistent databases store the plaintext salary amounts or PII—meaning the protocol has zero regulatory footprint regarding Data Residency laws.
+*   **The Nuance:** By pushing the heavy ZK Proving natively to the *Employer's Infrastructure* and only executing Verification inside the Transient TEE on behalf of the Employee, Aletheia legally bypasses "Data Exfiltration" regulations. No persistent databases store the plaintext salary amounts or PII mapping to employees—meaning the protocol has zero regulatory footprint regarding Data Residency laws.
