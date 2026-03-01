@@ -8,24 +8,22 @@ import {
 import {
     Client
 } from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
+import {ReceiverTemplate} from "./ReceiverTemplate.sol";
 
 /**
  * @title Vault
  * @notice A secure repository for storing protocol liquidity, controlled by the ComplianceCashier.
- * @dev Isolates fund custody from logical accounting. Features an emergency pause.
+ * @dev Isolates fund custody from logical accounting. Features an emergency pause. Inherits from ReceiverTemplate to handle CRE Oracle reports.
  */
-contract Vault {
+contract Vault is ReceiverTemplate {
     IERC20 public immutable token;
     address public cashier;
-    address public owner;
     bool public isPaused;
     IRouterClient public router;
-    address public forwarder;
 
     mapping(uint64 => bool) public allowlistedChains;
 
     event CashierUpdated(address oldCashier, address newCashier);
-    event ForwarderUpdated(address oldForwarder, address newForwarder);
     event Paused(address account);
     event Unpaused(address account);
     event RebalanceInitiated(
@@ -51,14 +49,11 @@ contract Vault {
         _;
     }
 
-    modifier onlyOwner() {
-        if (msg.sender != owner) revert Unauthorized();
-        _;
-    }
-
     modifier onlyOwnerOrForwarder() {
-        if (msg.sender != owner && msg.sender != forwarder)
-            revert Unauthorized();
+        if (
+            msg.sender != this.owner() &&
+            msg.sender != this.getForwarderAddress()
+        ) revert Unauthorized();
         _;
     }
 
@@ -78,13 +73,17 @@ contract Vault {
      * @notice Constructor
      * @param _token The underlying ERC20 token
      * @param _router The CCIP router address
+     * @param _forwarder The authorized CRE Forwarder address
      */
-    constructor(address _token, address _router) {
+    constructor(
+        address _token,
+        address _router,
+        address _forwarder
+    ) ReceiverTemplate(_forwarder) {
         if (_token == address(0)) revert ZeroAddress();
         if (_router == address(0)) revert ZeroAddress();
         token = IERC20(_token);
         router = IRouterClient(_router);
-        owner = msg.sender;
     }
 
     /**
@@ -96,17 +95,6 @@ contract Vault {
         address oldCashier = cashier;
         cashier = _cashier;
         emit CashierUpdated(oldCashier, _cashier);
-    }
-
-    /**
-     * @notice Links an authorized Chainlink CRE Forwarder to the Vault
-     * @param _forwarder The address of the Forwarder
-     */
-    function setForwarder(address _forwarder) external onlyOwner {
-        if (_forwarder == address(0)) revert ZeroAddress();
-        address oldForwarder = forwarder;
-        forwarder = _forwarder;
-        emit ForwarderUpdated(oldForwarder, _forwarder);
     }
 
     /**
@@ -268,5 +256,22 @@ contract Vault {
         uint256 amount = address(this).balance;
         (bool sent, ) = to.call{value: amount}("");
         require(sent, "Native transfer failed");
+    }
+
+    /**
+     * @notice Processes a validated CRE report
+     * @dev Called by ReceiverTemplate.onReport after forwarder validation passes.
+     * @param report ABI-encoded payload from the workflow (expected: rebalanceCrossChain call data).
+     */
+    function _processReport(bytes calldata report) internal override {
+        // Execute the encoded `rebalanceCrossChain` payload passed by the workflow
+        (bool success, bytes memory returnData) = address(this).delegatecall(
+            report
+        );
+        if (!success) {
+            assembly {
+                revert(add(returnData, 32), mload(returnData))
+            }
+        }
     }
 }
