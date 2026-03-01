@@ -7,7 +7,10 @@ import {
     hexToBase64,
     CronCapability,
     type CronPayload,
-    handler
+    handler,
+    encodeCallMsg,
+    LATEST_BLOCK_NUMBER,
+    prepareReportRequest
 } from '@chainlink/cre-sdk'
 import { parseAbiItem, encodeFunctionData, type Hex } from 'viem'
 import { z } from 'zod'
@@ -23,20 +26,32 @@ const ConfigSchema = z.object({
         vaultAddress: z.string(),
         cashierAddress: z.string().optional(),
         rebalanceThreshold: z.string(),
-        destinationChainSelector: z.string(),
-        destinationVault: z.string()
+        destinationChainSelector: z.string().optional(), // No longer strictly needed for dynamic routing
+        destinationVault: z.string().optional() // No longer strictly needed for dynamic routing
     })),
 });
 
 type Config = z.infer<typeof ConfigSchema>;
 
 // 2. Events & ABIs Definitions
-const VAULT_BALANCE_ABI = parseAbiItem(
+const VAULT_TOKEN_ABI = parseAbiItem(
     'function token() external view returns (address)'
+);
+const ERC20_BALANCE_ABI = parseAbiItem(
+    'function balanceOf(address account) external view returns (uint256)'
 );
 const REBALANCE_CROSS_CHAIN_ABI = parseAbiItem(
     'function rebalanceCrossChain(uint64 _destinationChainSelector, address _receiver, uint256 _amount) external returns (bytes32 messageId)'
 );
+
+interface VaultState {
+    chainInfo: Config['chains'][0];
+    tokenAddress: string;
+    balance: bigint;
+    threshold: bigint;
+    client: any;
+    chainSelector: bigint;
+}
 
 // 3. Workflow Logic: Executes on the Cron Schedule
 const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string => {
@@ -44,29 +59,25 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
         const scheduledTime = new Date(
             Number(payload.scheduledExecutionTime.seconds) * 1000 + payload.scheduledExecutionTime.nanos / 1000000
         )
-        console.log(`[RebalanceOracle] Cron triggered at ${scheduledTime.toISOString()}. Checking Vault health...`)
+        console.log(`[RebalanceOracle] Cron triggered at ${scheduledTime.toISOString()}. Beginning distributed health check...`)
     }
 
-    let successes = 0;
-    let ignored = 0;
     let errors = 0;
+    const allVaults: VaultState[] = [];
 
-    // Iterate through all configured chains and check their vault balances
-    for (const sourceChain of runtime.config.chains) {
-        if (!sourceChain.vaultAddress || sourceChain.vaultAddress === NULL_ADDRESS) {
-            continue;
-        }
-
-        console.log(`[RebalanceOracle] Checking Vault on ${sourceChain.chainName}...`);
+    // --- PASS 1: GATHER ALL BALANCES ---
+    console.log(`[RebalanceOracle] PASS 1: Fetching liquidity states from all networks...`);
+    for (const chain of runtime.config.chains) {
+        if (!chain.vaultAddress || chain.vaultAddress === NULL_ADDRESS) continue;
 
         const network = getNetwork({
             chainFamily: 'evm',
-            chainSelectorName: sourceChain.chainName,
+            chainSelectorName: chain.chainName,
             isTestnet: true
         });
 
         if (!network) {
-            console.error(`Error: Network not found for ${sourceChain.chainName}`);
+            console.error(`[RebalanceOracle] Error: Network not found for ${chain.chainName}`);
             errors++;
             continue;
         }
@@ -74,65 +85,138 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
         const client = new cre.capabilities.EVMClient(network.chainSelector.selector);
 
         try {
-            // Find token address from Vault
+            // 1a. Find token address from Vault
             const tokenCallData = encodeFunctionData({
-                abi: [VAULT_BALANCE_ABI],
+                abi: [VAULT_TOKEN_ABI],
                 functionName: 'token',
                 args: []
             });
 
-            // Make EVM Read Call
-            // @ts-ignore - bypassing strict ClientCapability typing for SDK internal mock logic
-            const tokenResult = client.call(runtime, {
-                to: sourceChain.vaultAddress,
-                data: hexToBase64(tokenCallData as Hex)
+            const tokenResultBytes = client.callContract(runtime, {
+                call: encodeCallMsg({
+                    from: NULL_ADDRESS as Hex,
+                    to: chain.vaultAddress as Hex,
+                    data: tokenCallData as Hex
+                }),
+                blockNumber: LATEST_BLOCK_NUMBER
             }).result();
+            const tokenAddressStr = bytesToHex(tokenResultBytes.data).slice(-40);
+            const tokenAddress = `0x${tokenAddressStr}` as Hex;
 
-            // Simulation assumption: Balance exceeds threshold
-            const threshold = BigInt(sourceChain.rebalanceThreshold);
-
-            // Mocking the physical balance check for this boilerplate
-            // const currentBalance = fetchFromERC20(tokenAddress);
-            const currentBalance = threshold + 1n;
-
-            const shouldRebalance = currentBalance > threshold;
-
-            if (!shouldRebalance) {
-                console.log(`[RebalanceOracle] ${sourceChain.chainName} vault balance safe. Skipping.`);
-                ignored++;
-                continue;
-            }
-
-            console.log(`[RebalanceOracle] Triggering CCIP Rebalance of Vault: ${sourceChain.vaultAddress} -> ${sourceChain.destinationChainSelector}`);
-
-            // 3. Trigger CCIP Rebalancing via EVM Write execution
-            const rebalancePayload = encodeFunctionData({
-                abi: [REBALANCE_CROSS_CHAIN_ABI],
-                functionName: 'rebalanceCrossChain',
-                args: [
-                    BigInt(sourceChain.destinationChainSelector),
-                    sourceChain.destinationVault as Hex,
-                    currentBalance // Transfer the excess or entire balance depending on protocol rules
-                ],
+            // 1b. Get actual ERC20 Balance of the Vault
+            const balCallData = encodeFunctionData({
+                abi: [ERC20_BALANCE_ABI],
+                functionName: 'balanceOf',
+                args: [chain.vaultAddress as Hex]
             });
 
-            // @ts-ignore - bypassing strict ClientCapability typing for SDK internals
-            const writeResult = client.write(runtime, {
-                to: sourceChain.vaultAddress,
-                data: hexToBase64(rebalancePayload as Hex),
-                gasConfig: { gasLimit: '1500000' }, // Generous gas for CCIP interaction
+            const balResultBytes = client.callContract(runtime, {
+                call: encodeCallMsg({
+                    from: NULL_ADDRESS as Hex,
+                    to: tokenAddress,
+                    data: balCallData as Hex
+                }),
+                blockNumber: LATEST_BLOCK_NUMBER
             }).result();
+            const balanceHex = bytesToHex(balResultBytes.data);
+            const currentBalance = BigInt(balanceHex);
+            const threshold = BigInt(chain.rebalanceThreshold);
 
-            console.log(`[RebalanceOracle] Success: Rebalance sequence initiated. Tx Status: ${writeResult.txStatus}`);
-            successes++;
+            console.log(`[RebalanceOracle] - ${chain.chainName}: Balance = ${currentBalance}, Threshold = ${threshold}`);
+
+            allVaults.push({
+                chainInfo: chain,
+                tokenAddress: tokenAddress,
+                balance: currentBalance,
+                threshold: threshold,
+                client: client,
+                chainSelector: BigInt(network.chainSelector.selector)
+            });
 
         } catch (e: any) {
-            console.error(`[RebalanceOracle] Failed to execute workflow on ${sourceChain.chainName}: ${e.message}`);
+            console.error(`[RebalanceOracle] Execution failed on ${chain.chainName}: ${e.message || e}`);
             errors++;
         }
     }
 
-    return `Batch complete. Rebalanced: ${successes}, Ignored: ${ignored}, Errors: ${errors}`;
+    if (allVaults.length < 2) {
+        return `[RebalanceOracle] Insufficient active vaults to rebalance. Found: ${allVaults.length}. Errors: ${errors}`;
+    }
+
+    // --- PASS 2: CALCULATE SURPLUS AND DEFICIT ---
+    console.log(`[RebalanceOracle] PASS 2: Calculating optimal routing...`);
+
+    let maxSurplusVault: VaultState | null = null;
+    let maxSurplusAmount = 0n;
+
+    let maxDeficitVault: VaultState | null = null;
+    let maxDeficitAmount = 0n; // This is an absolute value (how much it is UNDER threshold)
+
+    for (const v of allVaults) {
+        const diff = v.balance - v.threshold;
+
+        if (diff > 0n && diff > maxSurplusAmount) {
+            maxSurplusAmount = diff;
+            maxSurplusVault = v;
+        } else if (diff < 0n) {
+            const deficit = -diff;
+            if (deficit > maxDeficitAmount) {
+                maxDeficitAmount = deficit;
+                maxDeficitVault = v;
+            }
+        }
+    }
+
+    // --- PASS 3: ROUTE THE TRANSACTON ---
+    if (!maxSurplusVault) {
+        return `[RebalanceOracle] Result: All vaults are operating at or below threshold limits. No surplus to distribute.`;
+    }
+
+    if (!maxDeficitVault) {
+        // Technically this means everyone is healthy and above threshold, but we might just 
+        // fall back to the config "destinationChainSelector" if there is a surplus and config mandates a drain.
+        console.log(`[RebalanceOracle] Notice: No vaults are below threshold. All healthy.`);
+        return `[RebalanceOracle] Result: No deficit detected across network. No rebalance needed.`;
+    }
+
+    // We have a sender (surplus) and a receiver (deficit)
+    // Transfer amount is the minimum between what the sender can spare, and what the receiver needs.
+    const transferAmount = maxSurplusAmount < maxDeficitAmount ? maxSurplusAmount : maxDeficitAmount;
+
+    console.log(`[RebalanceOracle] ROUTING DECISION:`);
+    console.log(`[RebalanceOracle] Source: ${maxSurplusVault.chainInfo.chainName} (${maxSurplusAmount} Surplus)`);
+    console.log(`[RebalanceOracle] Dest:   ${maxDeficitVault.chainInfo.chainName} (${maxDeficitAmount} Deficit)`);
+    console.log(`[RebalanceOracle] Amount: ${transferAmount} units`);
+
+    try {
+        const rebalancePayload = encodeFunctionData({
+            abi: [REBALANCE_CROSS_CHAIN_ABI],
+            functionName: 'rebalanceCrossChain',
+            args: [
+                maxDeficitVault.chainSelector,
+                maxDeficitVault.chainInfo.vaultAddress as Hex,
+                transferAmount
+            ],
+        });
+
+        // Prepare the report
+        const reportRequest = prepareReportRequest(rebalancePayload as Hex);
+        const report = runtime.report(reportRequest).result();
+
+        // Write EVM Data
+        // @ts-ignore
+        const writeResult = maxSurplusVault.client.writeReport(runtime, {
+            receiver: maxSurplusVault.chainInfo.vaultAddress,
+            report: report,
+            gasConfig: { gasLimit: '1500000' },
+        }).result();
+
+        const txHash = writeResult.txHash ? bytesToHex(writeResult.txHash) : 'N/A';
+        return `[RebalanceOracle] Success! Initiated CCIP transfer of ${transferAmount} units to ${maxDeficitVault.chainInfo.chainName}. Tx Status: ${writeResult.txStatus}, Hash: ${txHash}`;
+
+    } catch (e: any) {
+        return `[RebalanceOracle] CRITICAL ERROR executing CCIP transmission: ${e.message || e}`;
+    }
 }
 
 // 4. Initialization Logic - Multi-Chain Support
@@ -148,10 +232,9 @@ const initWorkflow = (config: Config) => {
         throw new Error("No chains found with a valid 'vaultAddress' to monitor.");
     }
 
-    console.log(`Initializing cron rebalance workflow monitoring ${validVaults.length} vaults.`);
+    console.log(`Initializing cron smart-rebalance workflow monitoring ${validVaults.length} vaults.`);
 
     // Create the trigger - fires every 1 hour (configurable based on needs)
-    // The cron expression means: At minute 0 past every hour
     const cronTrigger = new CronCapability().trigger({
         schedule: "0 0 * * * *",
     });

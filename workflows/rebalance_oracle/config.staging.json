@@ -3,10 +3,14 @@
         {
             "chainId": "11155111",
             "chainName": "ethereum-testnet-sepolia",
-            "vaultAddress": "0x0000000000000000000000000000000000000000",
-            "rebalanceThreshold": "100000000000000000000",
-            "destinationChainSelector": "16015286601757825753",
-            "destinationVault": "0x1111111111111111111111111111111111111111"
+            "vaultAddress": "0x24539f784823DB3DBec8022b21cAb703dB916037",
+            "rebalanceThreshold": "1000000"
+        },
+        {
+            "chainId": "11155420",
+            "chainName": "ethereum-testnet-sepolia-optimism-1",
+            "vaultAddress": "0x631c0440d166E19FA1F4f6196491dfb730b468D3",
+            "rebalanceThreshold": "10000"
         }
     ]
 }
