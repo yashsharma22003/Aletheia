@@ -1,0 +1,15 @@
+{
+  "opSepolia": {
+    "chainId": 11155420,
+    "router": "0x114A2995531b9d9516BE0884541f1eF1CB910C57",
+    "chainSelector": "5224473277236331295",
+    "token": "0x1e7a99b202d1a8bb43ff778e943a4022fb221f14"
+  },
+  "ethSepolia": {
+    "chainId": 11155111,
+    "router": "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59",
+    "chainSelector": "16015286601757825753",
+    "token": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+    "vaultAddress": "0x9AC6F9B50fc8B808a1f8f631618F89500ee2DBce"
+  }
+}

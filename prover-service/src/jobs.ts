@@ -11,6 +11,7 @@ export type JobStatus =
     | 'pending'
     | 'witness_generating'
     | 'proving'
+    | 'verifying'
     | 'completed'
     | 'failed';
 

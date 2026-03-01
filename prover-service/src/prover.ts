@@ -12,7 +12,7 @@ const CIRCUITS_DIR = path.resolve(__dirname, '../../circuits');
  * Run a command using spawn, streaming stdout/stderr in real-time.
  * Returns a promise that resolves with exit code.
  */
-function runCommand(
+export function runCommand(
     cmd: string,
     args: string[],
     opts: { cwd?: string; timeout?: number } = {}

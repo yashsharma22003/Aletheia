@@ -5,6 +5,7 @@ import { computeSignParams, generateWitness, WitnessParams } from './witness';
 import { generateProof, checkToolchainAvailability } from './prover';
 import { createJob, getJob, updateJob } from './jobs';
 import { decryptPayload } from './crypto/decryptor';
+import { runRedeemPipeline, RedeemParams } from './redeem';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -150,6 +151,43 @@ app.get('/api/prove/:jobId', (req, res) => {
     }
 
     res.json(response);
+});
+
+// ──────────────────────────────────────────────
+// POST /api/redeem
+// ──────────────────────────────────────────────
+// Validates Employee signature and executes TEE Settlement
+
+app.post('/api/redeem', async (req, res) => {
+    try {
+        const body = req.body;
+        const required = [
+            'chequeId', 'recipientAddress', 'signature',
+            'sourceRpcUrl', 'sourceCashierAddress',
+            'targetRpcUrl', 'targetProofRegistryAddress',
+            'relayerPrivateKey'
+        ];
+
+        const missing = required.filter(f => !body[f]);
+        if (missing.length > 0) {
+            res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
+            return;
+        }
+
+        const params: RedeemParams = body;
+        const job = createJob();
+
+        console.log(`[redeem] Job ${job.id} created, starting TEE Verification Pipeline...`);
+        res.json({ jobId: job.id, status: job.status });
+
+        // Run the settlement pipeline in the background
+        runRedeemPipeline(job.id, params).catch((err) => {
+            console.error(`[redeem] Job ${job.id} pipeline error:`, err);
+        });
+    } catch (err: any) {
+        console.error('[redeem] Error:', err);
+        res.status(400).json({ error: err.message });
+    }
 });
 
 // ──────────────────────────────────────────────

@@ -15,7 +15,7 @@ contract ComplianceCashierTest is Test {
 
     function setUp() public {
         token = new MockERC20("Test Token", "TST", 18);
-        vault = new Vault(address(token), address(0x55)); // Mock router address
+        vault = new Vault(address(token), address(0x55), forwarder); // Mock router address
         cashier = new ComplianceCashier(payable(address(vault)), forwarder);
         vault.setCashier(address(cashier));
         token.mint(user, 10000 * 10 ** 18);

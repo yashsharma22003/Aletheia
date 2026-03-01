@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import {Vault} from "../src/Vault.sol";
+import {ReceiverTemplate} from "../src/ReceiverTemplate.sol";
 import {MockERC20} from "./MockERC20.sol";
 import {MockRouterClient} from "./MockRouterClient.sol";
 
@@ -19,7 +20,7 @@ contract VaultTest is Test {
     function setUp() public {
         token = new MockERC20("Test Token", "TST", 18);
         router = new MockRouterClient();
-        vault = new Vault(address(token), address(router));
+        vault = new Vault(address(token), address(router), forwarder);
         vault.setCashier(cashier);
 
         token.mint(user, 10000 * 10 ** 18);
@@ -43,16 +44,17 @@ contract VaultTest is Test {
     }
 
     function testSetForwarder() public {
-        assertEq(vault.forwarder(), address(0)); // initially un-set
+        // forwarder is set at construction time
+        assertEq(vault.getForwarderAddress(), forwarder);
 
-        vault.setForwarder(forwarder);
-        assertEq(vault.forwarder(), forwarder);
+        vault.setForwarderAddress(address(0x5));
+        assertEq(vault.getForwarderAddress(), address(0x5));
     }
 
     function testSetForwarderUnauthorized() public {
         vm.prank(user);
-        vm.expectRevert(Vault.Unauthorized.selector);
-        vault.setForwarder(forwarder);
+        vm.expectRevert(ReceiverTemplate.NotOwner.selector);
+        vault.setForwarderAddress(address(0x5));
     }
 
     function testDeposit() public {
@@ -157,9 +159,8 @@ contract VaultTest is Test {
         uint256 amount = 1000 * 10 ** 18;
         uint64 destChain = 16015286601757825753; // Sepolia
 
-        // Admin allowlists the chain and sets forwarder
+        // Admin allowlists the chain (forwarder already set in setUp)
         vault.allowlistDestinationChain(destChain, true);
-        vault.setForwarder(forwarder);
 
         // Cashier deposits into Vault
         vm.prank(cashier);
@@ -178,9 +179,8 @@ contract VaultTest is Test {
         uint256 amount = 1000 * 10 ** 18;
         uint64 destChain = 16015286601757825753; // Sepolia
 
-        // Admin allowlists the chain and sets forwarder
+        // Admin allowlists the chain (forwarder already set in setUp)
         vault.allowlistDestinationChain(destChain, true);
-        vault.setForwarder(forwarder);
 
         // Normal user attempts to trigger cross-chain rebalance (should revert)
         vm.prank(user);

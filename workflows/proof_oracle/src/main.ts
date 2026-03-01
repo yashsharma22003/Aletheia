@@ -5,7 +5,7 @@ import {
     type Runtime,
     prepareReportRequest,
 } from '@chainlink/cre-sdk'
-import { encodeAbiParameters, parseAbiParameters, type Hex, bytesToHex } from 'viem'
+import { encodeAbiParameters, parseAbiParameters, type Hex, bytesToHex, keccak256 } from 'viem'
 import { z } from 'zod'
 
 // 1. Configuration Schema (Matches staging.json)
@@ -121,10 +121,14 @@ const onHttpTrigger = (runtime: Runtime<Config>, requestPayload: any): string =>
 
     // 3. Write Report back to Target Chain ProofRegistry
     try {
-        // (bytes32 chequeId, bytes proof)
+        // Hash the proof off-chain — only 32 bytes stored on-chain instead of ~16KB
+        const proofHash = keccak256(proofHex);
+        console.log(`[ProofOracle] Proof keccak256 hash: ${proofHash}`);
+
+        // (bytes32 chequeId, bytes32 proofHash) — matches ProofRegistry._processReport
         const reportPayload = encodeAbiParameters(
-            parseAbiParameters('bytes32, bytes'),
-            [chequeId as Hex, proofHex]
+            parseAbiParameters('bytes32, bytes32'),
+            [chequeId as Hex, proofHash]
         );
 
         const reportRequest = prepareReportRequest(reportPayload);
@@ -145,10 +149,10 @@ const onHttpTrigger = (runtime: Runtime<Config>, requestPayload: any): string =>
         const writeResult = writeClient.writeReport(runtime, {
             receiver: targetChain.registryAddress,
             report: report,
-            gasConfig: { gasLimit: '1000000' }, // Proofs are large, need more gas
+            gasConfig: { gasLimit: '200000' }, // Small now — only storing a bytes32 hash
         }).result();
 
-        return `Success: Proof registry report written. Tx Status: ${writeResult.txStatus}`;
+        return `Success: Proof hash registered. Hash: ${proofHash}. Tx Status: ${writeResult.txStatus}`;
 
     } catch (e: any) {
         console.error(`[ProofOracle] Failed to execute workflow: ${e.message}`);

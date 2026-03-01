@@ -20,10 +20,7 @@ contract DeployAndDeposit is Script {
         // 2. Deploy Mock Router (For script compilation, real deployment will need real CCIP routers)
         address mockRouter = address(0x123);
 
-        // 3. Deploy Vault
-        Vault vault = new Vault(address(token), mockRouter);
-
-        // 4. Determine Forwarder Address based on Chain ID
+        // 3. Determine Forwarder Address based on Chain ID
         // Using MockKeystoneForwarder addresses for simulate --broadcast
         address forwarder;
         if (block.chainid == 11155420) {
@@ -39,6 +36,9 @@ contract DeployAndDeposit is Script {
         } else {
             forwarder = address(0x123); // Dummy for local/anvil
         }
+
+        // 4. Deploy Vault
+        Vault vault = new Vault(address(token), mockRouter, forwarder);
 
         // 5. Deploy Cashier
         ComplianceCashier cashier = new ComplianceCashier(
