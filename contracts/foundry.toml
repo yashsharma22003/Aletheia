@@ -3,3 +3,36 @@ src = "src"
 out = "out"
 libs = ["lib"]
 solc_version = "0.8.20"
+fs_permissions = [{ access = "read-write", path = "./config" }]
+
+[rpc_endpoints]
+# ── Testnets ──────────────────────────────────────────────
+ethSepolia  = "${SEPOLIA_RPC_URL}"
+opSepolia   = "${OP_SEPOLIA_RPC_URL}"
+baseSepolia = "${BASE_SEPOLIA_RPC_URL}"
+arbSepolia  = "${ARB_SEPOLIA_RPC_URL}"
+avaxFuji    = "${AVAX_FUJI_RPC_URL}"
+
+# ── Mainnets ──────────────────────────────────────────────
+ethereum  = "${ETHEREUM_RPC_URL}"
+optimism  = "${OP_RPC_URL}"
+base      = "${BASE_RPC_URL}"
+arbitrum  = "${ARB_RPC_URL}"
+avalanche = "${AVAX_RPC_URL}"
+polygon   = "${POLYGON_RPC_URL}"
+
+[etherscan]
+# Testnet
+ethSepolia  = { key = "${ETHERSCAN_API_KEY}",   url = "https://api-sepolia.etherscan.io/api" }
+opSepolia   = { key = "${OP_ETHERSCAN_API_KEY}", url = "https://api-sepolia-optimistic.etherscan.io/api" }
+baseSepolia = { key = "${BASE_ETHERSCAN_API_KEY}", url = "https://api-sepolia.basescan.org/api" }
+arbSepolia  = { key = "${ARB_ETHERSCAN_API_KEY}", url = "https://api-sepolia.arbiscan.io/api" }
+avaxFuji    = { key = "${SNOWTRACE_API_KEY}",    url = "https://api-testnet.snowtrace.io/api" }
+
+# Mainnet
+ethereum  = { key = "${ETHERSCAN_API_KEY}",     url = "https://api.etherscan.io/api" }
+optimism  = { key = "${OP_ETHERSCAN_API_KEY}",  url = "https://api-optimistic.etherscan.io/api" }
+base      = { key = "${BASE_ETHERSCAN_API_KEY}", url = "https://api.basescan.org/api" }
+arbitrum  = { key = "${ARB_ETHERSCAN_API_KEY}", url = "https://api.arbiscan.io/api" }
+avalanche = { key = "${SNOWTRACE_API_KEY}",     url = "https://api.snowtrace.io/api" }
+polygon   = { key = "${POLYGONSCAN_API_KEY}",   url = "https://api.polygonscan.com/api" }
