@@ -1,127 +1,34 @@
 // @ts-ignore
 import { poseidon2Hash } from '@zkpassport/poseidon2';
-import {
-    createPublicClient,
-    http,
-    keccak256,
-    encodePacked,
-    toHex,
-    toBytes,
-} from 'viem';
+import { keccak256, encodePacked, toHex, toBytes } from 'viem';
 import { RLP } from '@ethereumjs/rlp';
 import { Buffer } from 'buffer';
 import * as fs from 'fs';
 import * as path from 'path';
+import { WitnessParams, WitnessResult, SignParamsInput, SignParamsResult, AuthMaterial } from './types';
+import { fetchProofData } from './fetcher';
+import { computeSignParamsLocal, decodeAccountProof } from './decoder';
 import {
-    MAX_DEPTH,
     decodeRlp,
     toNumArray,
-    hexToNumArray,
     processProof,
     calculateTrieKeyIndex,
     toTomlBytes,
-    toTomlBool,
-    nodeToToml,
-    ParsedNode,
-} from './helpers';
+    nodeToToml
+} from '../helpers';
+import * as ethers from 'ethers';
 
-// ──────────────────────────────────────────────
-// Types
-// ──────────────────────────────────────────────
-
-export interface WitnessParams {
-    rpcUrl: string;
-    contractAddress: string;
-    depositorAddress: string;
-    recipient: string;
-    nonce: number;
-    targetChainId: number;
-    denomination: number;
-    /** 64-byte signature (r+s) as hex string — optional if privateKey is provided */
-    signature?: string;
-    /** 65-byte uncompressed public key (04 || X || Y) as hex — optional if privateKey is provided */
-    pubKey?: string;
-    /** Private key for server-side signing (test mode) — auto-derives signature + pubKey */
-    privateKey?: string;
-    /** Optional block number to use; defaults to latest */
-    blockNumber?: number;
-}
-
-export interface WitnessResult {
-    proverToml: string;
-    publicInputs: {
-        root: string;
-        recipient: string;
-        nullifierHash: string;
-        vaultAddress: string;
-        chequeId: string;
-        denomination: string;
-        targetChainId: string;
-    };
-}
-
-// ──────────────────────────────────────────────
-// Sign Params Helper
-// ──────────────────────────────────────────────
-
-export interface SignParamsInput {
-    depositorAddress: string;
-    nonce: number;
-    recipient: string;
-    targetChainId: number;
-}
-
-export interface SignParamsResult {
-    chequeId: string;
-    messageHash: string;
-    message: string;
-}
-
-/**
- * Computes the chequeId and messageHash that the user needs to sign.
- * The frontend calls this first, then asks the user to sign the messageHash.
- */
 export function computeSignParams(input: SignParamsInput): SignParamsResult {
-    const { depositorAddress, nonce, recipient, targetChainId } = input;
-
-    // chequeId = keccak256(abi.encodePacked(owner, nonce))
-    const chequeId = keccak256(
-        encodePacked(
-            ['address', 'uint256'],
-            [depositorAddress as `0x${string}`, BigInt(nonce)]
-        )
-    );
-
-    // messageHash = keccak256(encodePacked(recipient, chequeId, chainId))
-    const messageHash = keccak256(
-        encodePacked(
-            ['address', 'bytes32', 'uint64'],
-            [
-                recipient as `0x${string}`,
-                chequeId as `0x${string}`,
-                BigInt(targetChainId),
-            ]
-        )
-    );
-
-    return {
-        chequeId,
-        messageHash,
-        message: `Sign this hash with your wallet to authorize the storage proof generation. ChequeId: ${chequeId}`,
-    };
+    return computeSignParamsLocal(input);
 }
-
-// ──────────────────────────────────────────────
-// Witness Generation
-// ──────────────────────────────────────────────
 
 export async function generateWitness(
     params: WitnessParams,
     outputDir: string
 ): Promise<WitnessResult> {
     const {
-        rpcUrl,
-        contractAddress,
+        sourceRpcUrl,
+        sourceContractAddress,
         depositorAddress,
         recipient,
         nonce,
@@ -131,131 +38,127 @@ export async function generateWitness(
         pubKey,
     } = params;
 
-    console.log(`[witness] Connecting to RPC: ${rpcUrl}`);
-
-    // Create a generic chain config since we may be talking to any EVM chain
-    const client = createPublicClient({
-        transport: http(rpcUrl),
-    });
-
-    // 1. Compute chequeId and storage slots
-    const chequeId = keccak256(
-        encodePacked(
-            ['address', 'uint256'],
-            [depositorAddress as `0x${string}`, BigInt(nonce)]
-        )
-    );
-    console.log(`[witness] ChequeId: ${chequeId}`);
-
-    const mappingSlot = 2n; // 'cheques' mapping is at slot 2
-    const slotKeyEncoded = encodePacked(
-        ['bytes32', 'uint256'],
-        [chequeId as `0x${string}`, mappingSlot]
-    );
-    const baseSlot = keccak256(slotKeyEncoded);
-    const slot0 = baseSlot;
-    const slot1 = toHex(BigInt(baseSlot) + 1n);
-
-    // 2. Fetch proofs from RPC
-    const block = params.blockNumber
-        ? await client.getBlock({ blockNumber: BigInt(params.blockNumber) })
-        : await client.getBlock();
-
-    console.log(`[witness] Block Number: ${block.number}`);
-
-    const proof = await client.getProof({
-        address: contractAddress as `0x${string}`,
-        storageKeys: [slot0, slot1],
-        blockNumber: block.number!,
-    });
-
-    console.log(`[witness] Account Proof Depth: ${proof.accountProof.length}`);
-    console.log(`[witness] Storage 0 Depth: ${proof.storageProof[0].proof.length}`);
-    console.log(`[witness] Storage 1 Depth: ${proof.storageProof[1].proof.length}`);
+    // 1. Fetch data from source chain
+    const { block, proof, chequeId, slot0, slot1 } = await fetchProofData(params);
 
     // 3. Process Account Proof
     const accountProof = proof.accountProof;
-    const vaultAccountProofNodes = processProof(accountProof);
-
-    const accountLeafRlp = decodeRlp(accountProof[accountProof.length - 1]);
-    const accountParamsRlp = RLP.decode(accountLeafRlp[1]) as Uint8Array[];
-
-    const nonceRaw = toNumArray(accountParamsRlp[0]);
-    const balanceRaw = toNumArray(accountParamsRlp[1]);
-
-    const noncePadded = Array(8).fill(0);
-    for (let i = 0; i < nonceRaw.length; i++) noncePadded[i] = nonceRaw[i];
-
-    const balancePadded = Array(32).fill(0);
-    for (let i = 0; i < balanceRaw.length; i++) balancePadded[i] = balanceRaw[i];
-
-    const vaultAccount = {
-        nonce: noncePadded,
-        balance: balancePadded,
-        storage_hash: toNumArray(accountParamsRlp[2]),
-        code_hash: toNumArray(accountParamsRlp[3]),
-    };
-
-    const vaultAccountLeafHash = keccak256(
-        toHex(Buffer.from(accountProof[accountProof.length - 1].slice(2), 'hex'))
-    );
+    const { vaultAccountProofNodes, vaultAccount, vaultAccountLeafHash, accountParamsRlp } = decodeAccountProof(accountProof);
 
     // 4. Process Storage Proof 0 (Slot 0: owner + denomination)
     const storageProof0 = proof.storageProof[0].proof;
     const storageNodes0 = processProof(storageProof0);
     const storageValue0Bytes = toNumArray(toBytes(proof.storageProof[0].value));
 
+    // val0: minimal RLP bytes, left-aligned
     const val0 = Array(32).fill(0);
     for (let i = 0; i < storageValue0Bytes.length; i++) val0[i] = storageValue0Bytes[i];
+
+    const offset0 = 32 - storageValue0Bytes.length;
+    const denomByteLen = storageValue0Bytes.length - 20;
+    const denomFromChain = denomByteLen > 0
+        ? BigInt('0x' + storageValue0Bytes.slice(0, denomByteLen).map((b: number) => b.toString(16).padStart(2, '0')).join(''))
+        : 0n;
+
+    console.log(`[witness] Slot0 raw (${storageValue0Bytes.length}b): ${storageValue0Bytes.map((b: number) => b.toString(16).padStart(2, '0')).join('')}`);
+    console.log(`[witness] Slot0 offset=${offset0}, denomFromChain=${denomFromChain}, denomParam=${denomination}`);
+
+    const slot0IsEmpty = storageValue0Bytes.every((b: number) => b === 0);
+    if (slot0IsEmpty) {
+        throw new Error(
+            `Cheque not found on-chain for chequeId=${chequeId}. ` +
+            `Slot 0 is all-zero — the cheque has not been deposited yet, ` +
+            `or the chequeId / contract address is wrong. ` +
+            `Verify: sourceContractAddress=${sourceContractAddress}, depositorAddress=${depositorAddress}, nonce=${nonce}.`
+        );
+    }
+
+    const actualDenomination = Number(denomFromChain);
+    if (actualDenomination !== denomination) {
+        console.log(`[witness] ⚠️  Denomination mismatch: param=${denomination}, chain=${actualDenomination}. Using on-chain value.`);
+    }
 
     const storageLeafHash0 = keccak256(
         toHex(Buffer.from(storageProof0[storageProof0.length - 1].slice(2), 'hex'))
     );
+
 
     // 5. Process Storage Proof 1 (Slot 1: targetChainId + isCompliant)
     const storageProof1 = proof.storageProof[1].proof;
     const storageNodes1 = processProof(storageProof1);
     const storageValue1Bytes = toNumArray(toBytes(proof.storageProof[1].value));
 
+    // val1: minimal RLP bytes, left-aligned
     const val1 = Array(32).fill(0);
     for (let i = 0; i < storageValue1Bytes.length; i++) val1[i] = storageValue1Bytes[i];
+
+    const offset1 = 32 - storageValue1Bytes.length;
+    console.log(`[witness] Slot1 raw (${storageValue1Bytes.length}b): ${storageValue1Bytes.map((b: number) => b.toString(16).padStart(2, '0')).join('')}`);
+    console.log(`[witness] Slot1 offset=${offset1}, expected targetChainId=${targetChainId}`);
 
     const storageLeafHash1 = keccak256(
         toHex(Buffer.from(storageProof1[storageProof1.length - 1].slice(2), 'hex'))
     );
+
+    const chainIdStartInTrimmed = Math.max(0, 24 - offset1);
+    const chainIdEndInTrimmed = Math.max(0, 32 - offset1);
+    const chainIdRawBytes = storageValue1Bytes.slice(chainIdStartInTrimmed, chainIdEndInTrimmed);
+
+    const chainIdFromChain = chainIdRawBytes.length > 0
+        ? BigInt('0x' + chainIdRawBytes.map((b: number) => b.toString(16).padStart(2, '0')).join(''))
+        : 0n;
+
+    console.log(`[witness] Slot1 decoded chainIdFromChain=${chainIdFromChain}, param=${targetChainId}`);
+    const actualTargetChainId = targetChainId;
+    if (Number(chainIdFromChain) !== targetChainId) {
+        throw new Error(
+            `TargetChainId mismatch: You signed for chainId=${targetChainId}, ` +
+            `but the on-chain cheque at chequeId=${chequeId} records chainId=${chainIdFromChain}. ` +
+            `Either use targetChainId=${chainIdFromChain} in your request, or re-deposit with the correct chain ID.`
+        );
+    }
 
     // 6. Derive signature and public key
     let sigBytes: number[];
     let pubKeyX: number[];
     let pubKeyY: number[];
 
-    // Compute message hash (needed for recovery and for signing)
-    const { messageHash } = computeSignParams({
-        depositorAddress: params.depositorAddress,
-        nonce: params.nonce,
-        recipient: params.recipient,
-        targetChainId: params.targetChainId,
-    });
-
-    const ethers = require('ethers');
+    let messageHash: string;
+    if (params.chequeId) {
+        messageHash = keccak256(
+            encodePacked(
+                ['address', 'bytes32', 'uint64'],
+                [
+                    params.recipient as `0x${string}`,
+                    params.chequeId as `0x${string}`,
+                    BigInt(targetChainId),
+                ]
+            )
+        );
+        console.log(`[witness] MessageHash computed from provided chequeId + param chainId(${targetChainId}): ${messageHash}`);
+    } else {
+        ({ messageHash } = computeSignParamsLocal({
+            depositorAddress: params.depositorAddress,
+            nonce: params.nonce,
+            recipient: params.recipient,
+            targetChainId: params.targetChainId,
+        }));
+        console.log(`[witness] MessageHash computed from depositor+nonce: ${messageHash}`);
+    }
 
     if (params.privateKey) {
-        // Mode 1: Auto-derive from private key (test mode / server-side signing)
         console.log('[witness] Deriving signature + pubKey from private key...');
         const pk = params.privateKey.startsWith('0x') ? params.privateKey : `0x${params.privateKey}`;
         const signingKey = new ethers.SigningKey(pk);
 
-        // Get uncompressed public key
-        const pubKeyFull = signingKey.publicKey; // 0x04...
+        const pubKeyFull = signingKey.publicKey;
         const pubKeyXHex = '0x' + pubKeyFull.slice(4, 68);
         const pubKeyYHex = '0x' + pubKeyFull.slice(68, 132);
         pubKeyX = toNumArray(toBytes(pubKeyXHex));
         pubKeyY = toNumArray(toBytes(pubKeyYHex));
 
-        // Sign using EIP-191 prefix (same as MetaMask personal_sign)
-        // The circuit now expects: ecrecover(sig, keccak256(prefix + rawMsgHash))
         const rawMsgHashBytes = ethers.getBytes(messageHash);
-        const ethMsgHash = ethers.hashMessage(rawMsgHashBytes); // adds \x19Ethereum Signed Message:\n32
+        const ethMsgHash = ethers.hashMessage(rawMsgHashBytes);
         const sig = signingKey.sign(ethMsgHash);
         const rBytes = toBytes(sig.r);
         const sBytes = toBytes(sig.s);
@@ -268,63 +171,51 @@ export async function generateWitness(
         sigCombined.set(sPadded, 32);
         sigBytes = Array.from(sigCombined);
     } else if (params.signature) {
-        // Mode 2/3: Signature provided — recover pubKey from it if not explicitly given
         const sigHex = params.signature.startsWith('0x') ? params.signature : `0x${params.signature}`;
         const sigBuf = Buffer.from(sigHex.replace('0x', ''), 'hex');
 
         if (params.pubKey) {
-            // Mode 3: Explicit signature + pubKey
             console.log('[witness] Using provided signature + pubKey...');
-            sigBytes = toNumArray(sigBuf.slice(0, 64)); // r + s only (64 bytes)
+            sigBytes = toNumArray(sigBuf.slice(0, 64)); // r + s only
             const pubKeyBuf = Buffer.from(params.pubKey.replace('0x', ''), 'hex');
             pubKeyX = toNumArray(pubKeyBuf.slice(1, 33));
             pubKeyY = toNumArray(pubKeyBuf.slice(33, 65));
         } else {
-            // Mode 2: Signature only — recover pubKey via ecrecover
             console.log('[witness] Recovering pubKey from signature via ecrecover...');
-
-            // Signature must be 65 bytes (r + s + v) for recovery
             if (sigBuf.length < 65) {
                 throw new Error('Signature must be 65 bytes (r+s+v) to recover public key. Provide pubKey explicitly for 64-byte signatures.');
             }
 
-            // Extract r, s, v for ethers recovery
             const r = '0x' + sigBuf.slice(0, 32).toString('hex');
             const s = '0x' + sigBuf.slice(32, 64).toString('hex');
             const v = sigBuf[64];
 
-            // Reconstruct ethers-compatible signature
             const ethSig = ethers.Signature.from({ r, s, v });
-
-            // Recover pubKey from the EIP-191 prefixed hash (personal_sign format)
             const rawMsgHashBytes = ethers.getBytes(messageHash);
             const ethMsgHash = ethers.hashMessage(rawMsgHashBytes);
             const recoveredPubKey = ethers.SigningKey.recoverPublicKey(ethMsgHash, ethSig);
+
             console.log(`[witness] Recovered pubKey: ${recoveredPubKey.slice(0, 20)}...`);
 
             const pubKeyXHex = '0x' + recoveredPubKey.slice(4, 68);
             const pubKeyYHex = '0x' + recoveredPubKey.slice(68, 132);
             pubKeyX = toNumArray(toBytes(pubKeyXHex));
             pubKeyY = toNumArray(toBytes(pubKeyYHex));
-
-            // Use r+s (64 bytes) for the circuit
             sigBytes = toNumArray(sigBuf.slice(0, 64));
         }
     } else {
         throw new Error('Either privateKey or signature must be provided');
     }
 
-    // 7. Split chequeId into high/low for circuit (it expects two Field values)
+    // 7. Split chequeId into high/low for circuit
     const chequeIdBuf = Buffer.from(chequeId.slice(2), 'hex');
     const chequeIdHigh = BigInt('0x' + chequeIdBuf.slice(0, 16).toString('hex'));
     const chequeIdLow = BigInt('0x' + chequeIdBuf.slice(16, 32).toString('hex'));
 
-    // 8. Compute Nullifier Hash
-    // Circuit: poseidon2([recoveredAddrField, denomination, targetChainId, chequeIdHigh, chequeIdLow], 5)
     const nullifierHashBigInt = poseidon2Hash([
         BigInt(depositorAddress),
-        BigInt(denomination),
-        BigInt(targetChainId),
+        BigInt(actualDenomination),
+        BigInt(actualTargetChainId),
         chequeIdHigh,
         chequeIdLow,
     ]);
@@ -334,11 +225,11 @@ export async function generateWitness(
 root = ${toTomlBytes(toNumArray(Buffer.from(block.stateRoot.slice(2), 'hex')))}
 recipient = "${BigInt(recipient).toString()}"
 nullifierHash = "${nullifierHashBigInt.toString()}"
-vaultAddress = ${toTomlBytes(toNumArray(Buffer.from(contractAddress.slice(2), 'hex')))}
+vaultAddress = ${toTomlBytes(toNumArray(Buffer.from(sourceContractAddress.slice(2), 'hex')))}
 chequeIdHigh = "${chequeIdHigh.toString()}"
 chequeIdLow = "${chequeIdLow.toString()}"
-denomination = "${denomination}"
-targetChainId = "${targetChainId}"
+denomination = "${actualDenomination}"
+targetChainId = "${actualTargetChainId}"
 
 # Account Proof
 vaultAccountProofLen = ${accountProof.length - 1}
@@ -362,7 +253,7 @@ signature = ${toTomlBytes(sigBytes)}
 
 # Account Struct
 [vaultAccount]
-address = ${toTomlBytes(toNumArray(Buffer.from(contractAddress.slice(2), 'hex')))}
+address = ${toTomlBytes(toNumArray(Buffer.from(sourceContractAddress.slice(2), 'hex')))}
 nonce = ${toTomlBytes(vaultAccount.nonce)}
 nonce_length = "${(accountParamsRlp[0] as Uint8Array).length}"
 balance = ${toTomlBytes(vaultAccount.balance)}
@@ -387,12 +278,10 @@ ${storageNodes0.map(n => `[[storageProofSlot0]]\n${nodeToToml(n)}`).join('\n')}
 ${storageNodes1.map(n => `[[storageProofSlot1]]\n${nodeToToml(n)}`).join('\n')}
 `;
 
-    // Write Prover.toml to the job working directory
     const tomlPath = path.join(outputDir, 'Prover.toml');
     fs.writeFileSync(tomlPath, toml);
     console.log(`[witness] Prover.toml written to ${tomlPath}`);
 
-    // Write Tracking Metadata so the async prover can forward the proof to the final chain
     const chequeIdPath = path.join(outputDir, 'chequeId.txt');
     const chainIdPath = path.join(outputDir, 'chainId.txt');
     fs.writeFileSync(chequeIdPath, chequeId);
@@ -402,11 +291,13 @@ ${storageNodes1.map(n => `[[storageProofSlot1]]\n${nodeToToml(n)}`).join('\n')}
         root: block.stateRoot,
         recipient: BigInt(recipient).toString(),
         nullifierHash: nullifierHashBigInt.toString(),
-        vaultAddress: contractAddress,
+        vaultAddress: sourceContractAddress,
         chequeId,
-        denomination: denomination.toString(),
-        targetChainId: targetChainId.toString(),
+        denomination: actualDenomination.toString(),
+        targetChainId: actualTargetChainId.toString(),
     };
 
     return { proverToml: toml, publicInputs };
 }
+
+export * from './types';

@@ -121,6 +121,9 @@ export async function generateProof(jobWorkDir: string): Promise<ProofResult> {
         if (stderr) console.log('[prover][nargo] stderr:', stderr);
     } catch (err: any) {
         const errMsg = err.stderr || err.message || String(err);
+        if (errMsg.includes('src/main.nr:226') && errMsg.includes('Failed constraint')) {
+            throw new Error(`Cheque is not compliant. Please wait for the compliance oracle to process it (or simulate the oracle) before generating a proof.`);
+        }
         throw new Error(`nargo execute failed: ${errMsg}`);
     }
 
@@ -180,8 +183,29 @@ export async function generateProof(jobWorkDir: string): Promise<ProofResult> {
                 const chainIdRaw = fs.readFileSync(path.join(jobWorkDir, 'chainId.txt'), 'utf8');
 
                 if (chequeIdRaw && chainIdRaw) {
-                    console.log(`[prover] Dispatching valid proof to Chainlink CRE Oracle for cheque: ${chequeIdRaw}`);
-                    await submitProofToOracle(chequeIdRaw.trim(), chainIdRaw.trim(), proofHex);
+                    const chequeId = chequeIdRaw.trim();
+                    const targetChainId = chainIdRaw.trim();
+                    console.log(`[prover] Dispatching valid proof to Chainlink CRE Oracle for cheque: ${chequeId}`);
+
+                    // Save the JSON payload to the job directory
+                    const oraclePayload = {
+                        targetChainId: Number(targetChainId),
+                        chequeId: chequeId,
+                        proof: proofHex
+                    };
+                    const payloadPath = path.join(jobWorkDir, 'oracle_payload.json');
+                    fs.writeFileSync(payloadPath, JSON.stringify(oraclePayload, null, 2));
+
+                    // Save the JSON payload permanently in the proofs/ directory for redemption
+                    const proofsDir = path.resolve(__dirname, '../../prover-service/proofs');
+                    if (!fs.existsSync(proofsDir)) {
+                        fs.mkdirSync(proofsDir, { recursive: true });
+                    }
+                    const permanentPayloadPath = path.join(proofsDir, `${chequeId}.json`);
+                    fs.writeFileSync(permanentPayloadPath, JSON.stringify(oraclePayload, null, 2));
+                    console.log(`[prover] Saved permanent Oracle JSON payload to: ${permanentPayloadPath}`);
+
+                    await submitProofToOracle(chequeId, targetChainId, proofHex);
                 }
             } catch (e: any) {
                 console.log(`[prover] ⚠️ Failed to submit proof to CRE Oracle: ${e.message}`);

@@ -1,7 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import { computeSignParams, generateWitness, WitnessParams } from './witness';
+import * as fs from 'fs';
+import { computeSignParams, generateWitness } from './witness';
+import { WitnessParams } from './witness/types';
 import { generateProof, checkToolchainAvailability } from './prover';
 import { createJob, getJob, updateJob } from './jobs';
 import { decryptPayload } from './crypto/decryptor';
@@ -38,7 +40,7 @@ app.get('/api/health', async (_req, res) => {
 
 app.post('/api/sign-params', (req, res) => {
     try {
-        const { depositorAddress, nonce, recipient, targetChainId } = req.body;
+        const { depositorAddress, nonce, recipient, targetChainId, chequeId } = req.body;
 
         if (!depositorAddress || nonce === undefined || !recipient || !targetChainId) {
             res.status(400).json({
@@ -52,6 +54,7 @@ app.post('/api/sign-params', (req, res) => {
             nonce: Number(nonce),
             recipient,
             targetChainId: Number(targetChainId),
+            chequeId: chequeId || undefined,  // Pass override chequeId if provided
         });
 
         res.json(result);
@@ -154,6 +157,29 @@ app.get('/api/prove/:jobId', (req, res) => {
 });
 
 // ──────────────────────────────────────────────
+// GET /api/proofs/:chequeId
+// ──────────────────────────────────────────────
+// Retrieve a permanently saved proof JSON payload for redemption.
+
+app.get('/api/proofs/:chequeId', (req, res) => {
+    try {
+        const chequeId = req.params.chequeId;
+        const proofPath = path.resolve(__dirname, '../../prover-service/proofs', `${chequeId}.json`);
+
+        if (!fs.existsSync(proofPath)) {
+            res.status(404).json({ error: 'Proof not found for this chequeId. It may not have been generated or saved yet.' });
+            return;
+        }
+
+        const proofData = fs.readFileSync(proofPath, 'utf8');
+        res.json(JSON.parse(proofData));
+    } catch (err: any) {
+        console.error('[proofs] Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ──────────────────────────────────────────────
 // POST /api/redeem
 // ──────────────────────────────────────────────
 // Validates Employee signature and executes TEE Settlement
@@ -230,8 +256,8 @@ async function runProvePipeline(jobId: string, params: WitnessParams): Promise<v
 
 function validateProveParams(body: any): WitnessParams {
     const required = [
-        'rpcUrl',
-        'contractAddress',
+        'sourceRpcUrl',        // Renamed
+        'sourceContractAddress', // Renamed
         'depositorAddress',
         'recipient',
         'nonce',
@@ -250,13 +276,14 @@ function validateProveParams(body: any): WitnessParams {
     }
 
     return {
-        rpcUrl: body.rpcUrl,
-        contractAddress: body.contractAddress,
+        sourceRpcUrl: body.sourceRpcUrl,
+        sourceContractAddress: body.sourceContractAddress,
         depositorAddress: body.depositorAddress,
         recipient: body.recipient,
         nonce: Number(body.nonce),
         targetChainId: Number(body.targetChainId),
         denomination: Number(body.denomination),
+        chequeId: body.chequeId || undefined,
         signature: body.signature,
         pubKey: body.pubKey,
         privateKey: body.privateKey,

@@ -3,7 +3,7 @@ import crypto from 'crypto';
 // The symmetric AES-256-GCM key used to encrypt the payload.
 // In a true CC environment, this is injected securely via Key Management Service (KMS) or Remote Attestation.
 // For our local mock, we load it from the environment.
-const RAW_KEY = process.env.CC_ENCRYPTION_KEY || 'san_marino_mock_encryption_key_1234567890'; // 32 bytes fallback
+const RAW_KEY = process.env.CC_ENCRYPTION_KEY || 'san_marino_mock_encryption_key_1'; //Exactly 32 bytes
 
 // Ensure key is exactly 32 bytes for AES-256
 const getEncryptionKey = (): Buffer => {
