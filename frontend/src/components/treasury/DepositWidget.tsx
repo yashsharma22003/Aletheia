@@ -3,23 +3,32 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChainSelector } from "@/components/shared/ChainSelector";
-import { autoBreakAmount, generateChequeId, Cheque } from "@/lib/mock-data";
+import { autoBreakAmount, Cheque } from "@/lib/mock-data";
 import { addCheques } from "@/lib/cheque-store";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, Zap, Wrench, AlertTriangle } from "lucide-react";
+import { Plus, Trash2, Zap, Wrench, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAccount, useWriteContract, usePublicClient } from "wagmi";
+import { parseUnits, erc20Abi, parseEventLogs } from "viem";
+import { CONTRACT_ADDRESSES } from "@/config/contracts";
+import { ComplianceCashierABI } from "@/config/ComplianceCashierABI";
 
 interface DepositWidgetProps {
   onMinted: () => void;
 }
 
 export function DepositWidget({ onMinted }: DepositWidgetProps) {
+  const { chainId } = useAccount();
   const [amount, setAmount] = useState("");
-  const [targetChain, setTargetChain] = useState(10);
+  const [targetChain, setTargetChain] = useState(11155420);
   const [mode, setMode] = useState<"auto" | "custom">("auto");
   const [customAmounts, setCustomAmounts] = useState<string[]>(["1000"]);
-  const [minting, setMinting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Wagmi hooks
+  const { writeContractAsync, isPending } = useWriteContract();
+  const publicClient = usePublicClient();
 
   const totalCustom = customAmounts.reduce((s, v) => s + (Number(v) || 0), 0);
   const parsedAmount = Number(amount) || 0;
@@ -45,27 +54,107 @@ export function DepositWidget({ onMinted }: DepositWidgetProps) {
     const denominations = mode === "auto" ? autoBreak : customAmounts.map(v => Number(v)).filter(v => v > 0);
     if (denominations.length === 0) return;
 
-    setMinting(true);
+    // We need the current chain's contract address to interact
+    const currentChainId = chainId || 11155420; // fallback OP Sepolia
+    const addresses = CONTRACT_ADDRESSES[currentChainId as keyof typeof CONTRACT_ADDRESSES];
 
-    // Simulate blockchain delay
-    await new Promise(r => setTimeout(r, 1500));
+    if (!addresses || addresses.cashier === "0x0000000000000000000000000000000000000000") {
+      toast.error("Contract not fully deployed on this chain yet.");
+      return;
+    }
 
-    const newCheques: Cheque[] = denominations.map(denom => ({
-      id: generateChequeId(),
-      denomination: denom,
-      targetChainId: targetChain,
-      compliance: false,
-      proven: false,
-      redeemed: false,
-      timestamp: Date.now(),
-    }));
+    setIsProcessing(true);
 
-    addCheques(newCheques);
-    setMinting(false);
-    setAmount("");
-    setCustomAmounts(["1000"]);
-    onMinted();
-    toast.success(`${newCheques.length} cheque${newCheques.length > 1 ? "s" : ""} minted successfully`);
+    try {
+      const finalAmount = mode === "auto" ? amount : totalCustom.toString();
+      const amountInWei = parseUnits(finalAmount || "0", 6); // Assuming USDC 6 decimals
+
+      toast.loading("Approving USDC transfer...", { id: "tx_submit" });
+      const approveTxHash = await writeContractAsync({
+        address: addresses.usdc,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [addresses.vault, amountInWei] as any,
+      });
+
+      // Wait for approval transaction to be mined
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash: approveTxHash });
+      }
+
+      toast.loading("Submitting deposit...", { id: "tx_submit" });
+
+      let txHash;
+      if (mode === "auto") {
+        txHash = await writeContractAsync({
+          address: addresses.cashier,
+          abi: ComplianceCashierABI,
+          functionName: "deposit",
+          args: [amountInWei, BigInt(targetChain)] as any,
+        });
+      } else {
+        txHash = await writeContractAsync({
+          address: addresses.cashier,
+          abi: ComplianceCashierABI,
+          functionName: "customDeposit",
+          args: [amountInWei, BigInt(targetChain), denominations.map(d => BigInt(d))] as any,
+        });
+      }
+
+      toast.loading("Waiting for deposit confirmation...", { id: "tx_submit" });
+
+      // Wait for deposit transaction to be mined
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash: txHash });
+      }
+
+      // Parse ChequeCreated events from the receipt to get real on-chain IDs
+      let newCheques: Cheque[] = [];
+      if (publicClient) {
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+        const events = parseEventLogs({
+          abi: ComplianceCashierABI as any,
+          logs: receipt.logs,
+          eventName: 'ChequeCreated',
+        });
+
+        newCheques = (events as any[]).map((evt) => ({
+          id: evt.args.chequeId as string,
+          denomination: Number(evt.args.denomination),
+          targetChainId: Number(evt.args.targetChainId),
+          compliance: false,
+          proven: false,
+          redeemed: false,
+          timestamp: Date.now(),
+        }));
+      }
+
+      if (newCheques.length === 0) {
+        // Fallback: use denomination list if event parsing failed
+        newCheques = denominations.map(denom => ({
+          id: `0x${'0'.repeat(64)}`, // Will be wrong but surface the issue
+          denomination: denom,
+          targetChainId: targetChain,
+          compliance: false,
+          proven: false,
+          redeemed: false,
+          timestamp: Date.now(),
+        }));
+      }
+
+      addCheques(newCheques);
+      setAmount("");
+      setCustomAmounts(["1000"]);
+      onMinted();
+
+      toast.success(`${newCheques.length} cheque${newCheques.length > 1 ? "s" : ""} minted successfully`, { id: "tx_submit" });
+
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.shortMessage || err?.message || "Failed to execute deposit transaction.");
+    } finally {
+      setIsProcessing(false);
+    }
   }
 
   return (
@@ -93,9 +182,10 @@ export function DepositWidget({ onMinted }: DepositWidgetProps) {
             <Input
               type="number"
               placeholder="e.g. 1600"
-              value={amount}
+              value={mode === "auto" ? amount : (totalCustom > 0 ? totalCustom : "")}
               onChange={e => setAmount(e.target.value)}
-              className="bg-secondary/50 border-glass-border font-mono"
+              readOnly={mode === "custom"}
+              className={`bg-secondary/50 border-glass-border font-mono ${mode === "custom" && "opacity-70 cursor-not-allowed"}`}
             />
           </div>
         </div>
@@ -185,10 +275,10 @@ export function DepositWidget({ onMinted }: DepositWidgetProps) {
         {/* Mint button */}
         <Button
           onClick={handleMint}
-          disabled={minting || (mode === "auto" ? autoBreak.length === 0 : totalCustom === 0 || customExceedsTotal)}
+          disabled={isProcessing || (mode === "auto" ? autoBreak.length === 0 : totalCustom === 0 || customExceedsTotal)}
           className="w-full h-11 font-semibold text-sm glow-green"
         >
-          {minting ? "Minting Cheques..." : "Deposit & Mint Cheques"}
+          {isProcessing ? "Minting Cheques..." : "Deposit & Mint Cheques"}
         </Button>
       </CardContent>
     </Card>

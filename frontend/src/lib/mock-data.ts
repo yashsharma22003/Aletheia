@@ -9,19 +9,23 @@ export interface Cheque {
   txHash?: string;
   proofHash?: string;
   settlementTxHash?: string;
+  /** Wallet signature from the proving phase, persisted for auto-fill in redemption */
+  walletSignature?: string;
 }
 
 export interface ChainInfo {
   id: number;
   name: string;
   icon: string;
+  rpcUrl: string;
+  cashierAddress: string;
 }
 
 export const CHAINS: ChainInfo[] = [
-  { id: 1, name: "Ethereum", icon: "⟠" },
-  { id: 10, name: "Optimism", icon: "🔴" },
-  { id: 42161, name: "Arbitrum", icon: "🔵" },
-  { id: 8453, name: "Base", icon: "🟢" },
+  { id: 11155111, name: "Ethereum Sepolia", icon: "⟠", rpcUrl: "https://sepolia.infura.io/v3/7bdf797390454aa4bddf06fe6b361d54", cashierAddress: "0xd32e613a93f8D683A45163692f9B5eFE03E77Ba9" },
+  { id: 11155420, name: "Optimism Sepolia", icon: "🔴", rpcUrl: "https://optimism-sepolia.infura.io/v3/7bdf797390454aa4bddf06fe6b361d54", cashierAddress: "0xC0d7A1253E9Bc2e3a78A417F2c7B06EdeE525018" },
+  { id: 421614, name: "Arbitrum Sepolia", icon: "🔵", rpcUrl: "https://arbitrum-sepolia.infura.io/v3/7bdf797390454aa4bddf06fe6b361d54", cashierAddress: "" },
+  { id: 84532, name: "Base Sepolia", icon: "🟢", rpcUrl: "https://base-sepolia.infura.io/v3/7bdf797390454aa4bddf06fe6b361d54", cashierAddress: "" },
 ];
 
 export const DENOMINATIONS = [1000, 500, 100];
@@ -52,12 +56,12 @@ export function generateMockTxHash(): string {
 
 export function getExplorerUrl(chainId: number, txHash: string): string {
   const explorers: Record<number, string> = {
-    1: "https://etherscan.io/tx/",
-    10: "https://optimistic.etherscan.io/tx/",
-    42161: "https://arbiscan.io/tx/",
-    8453: "https://basescan.org/tx/",
+    11155111: "https://sepolia.etherscan.io/tx/",
+    11155420: "https://sepolia-optimism.etherscan.io/tx/",
+    421614: "https://sepolia.arbiscan.io/tx/",
+    84532: "https://sepolia.basescan.org/tx/",
   };
-  return (explorers[chainId] || explorers[1]) + txHash;
+  return (explorers[chainId] || explorers[11155111]) + txHash;
 }
 
 export function getChainName(chainId: number): string {

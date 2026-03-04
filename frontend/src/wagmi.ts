@@ -1,8 +1,8 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { arbitrum, base, mainnet, optimism, polygon } from 'wagmi/chains';
+import { sepolia, optimismSepolia, arbitrumSepolia, baseSepolia } from 'wagmi/chains';
 
 export const config = getDefaultConfig({
-  appName: 'RainbowKit demo',
+  appName: 'Aletheia Protocol',
   projectId: 'YOUR_PROJECT_ID',
-  chains: [mainnet, polygon, optimism, arbitrum, base],
+  chains: [sepolia, optimismSepolia, arbitrumSepolia, baseSepolia],
 });

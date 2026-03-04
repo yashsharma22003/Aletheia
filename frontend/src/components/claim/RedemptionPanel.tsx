@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Cheque, generateMockTxHash, getExplorerUrl, shortenHash } from "@/lib/mock-data";
-import { motion } from "framer-motion";
-import { Banknote, ExternalLink, PartyPopper, Loader2 } from "lucide-react";
+import { Cheque, getExplorerUrl, shortenHash } from "@/lib/mock-data";
+import { motion, AnimatePresence } from "framer-motion";
+import { Banknote, ExternalLink, PartyPopper, Loader2, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+import { useAccount } from "wagmi";
+import { useEffect, useRef } from "react";
 
 interface RedemptionPanelProps {
   cheque: Cheque;
@@ -11,17 +13,109 @@ interface RedemptionPanelProps {
 }
 
 export function RedemptionPanel({ cheque, onRedeemed }: RedemptionPanelProps) {
-  const [status, setStatus] = useState<"ready" | "processing" | "settled">(cheque.redeemed ? "settled" : "ready");
+  const { address } = useAccount();
+  const [status, setStatus] = useState<"ready" | "processing" | "settled" | "error">(cheque.redeemed ? "settled" : "ready");
   const [txHash, setTxHash] = useState<string | null>(cheque.settlementTxHash || null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Prover Service State
+  const [serverUrl, setServerUrl] = useState("http://localhost:3000");
+  const [recipient, setRecipient] = useState(address || "");
+  const [signature, setSignature] = useState(cheque.walletSignature || "");
+  const [sourceRpcUrl, setSourceRpcUrl] = useState("https://sepolia.base.org");
+  const [sourceCashierAddress, setSourceCashierAddress] = useState("0x30Da28EbDF9a4FBa4fB652E63FDCfA20E1cc55fc");
+  const [targetRpcUrl, setTargetRpcUrl] = useState("https://sepolia.optimism.io");
+  const [targetProofRegistryAddress, setTargetProofRegistryAddress] = useState("0x17c040d346bE8C67CB6aFB88863A25b8109d7df9");
+  // Hardhat test account 0 private key default for relaying tests
+  const [relayerPrivateKey, setRelayerPrivateKey] = useState("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
+
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup interval on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (address && !recipient) setRecipient(address);
+  }, [address, recipient]);
+
+  // Sanitize cheque.id — handles full Magic Link URLs, bare 0x hashes, or legacy random IDs
+  function extractCleanChequeId(): string {
+    const raw = cheque.id;
+    if (!raw) return raw;
+    // If it's a full URL, extract the ?id= param
+    try {
+      const url = new URL(raw);
+      const id = url.searchParams.get('id');
+      if (id && /^0x[0-9a-fA-F]{64}$/.test(id)) return id;
+    } catch { /* not a URL */ }
+    // If it's a bare bytes32 hex
+    if (/^0x[0-9a-fA-F]{64}$/.test(raw)) return raw;
+    // Otherwise return as-is (server side will handle)
+    return raw;
+  }
 
   async function handleRedeem() {
     setStatus("processing");
-    // Simulate API call to POST /api/v1/settlement/redeem
-    await new Promise(r => setTimeout(r, 2500));
-    const hash = generateMockTxHash();
-    setTxHash(hash);
-    setStatus("settled");
-    onRedeemed();
+    setErrorMsg(null);
+
+    try {
+      if (!signature) throw new Error("Wallet Signature from the previous Proving phase is required to authorize redemption.");
+
+      const serverRaw = serverUrl.replace(/\/$/, '');
+      const bodyJSON = {
+        chequeId: extractCleanChequeId(),
+        recipientAddress: recipient,
+        signature: signature,
+        sourceRpcUrl,
+        sourceCashierAddress,
+        targetRpcUrl,
+        targetProofRegistryAddress,
+        relayerPrivateKey
+      };
+
+      const res = await fetch(`${serverRaw}/api/redeem`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyJSON),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      const currentJobId = data.jobId;
+
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = setInterval(async () => {
+        try {
+          // The prover service uses the same get-job endpoint for redeem jobs
+          const pollRes = await fetch(`${serverRaw}/api/prove/${currentJobId}`);
+          const pollData = await pollRes.json();
+
+          if (pollData.status === 'completed') {
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            // In a real settlement we'd extract the emitted transaction hash. We fallback to jobId if mock.
+            setTxHash(pollData.txHash || currentJobId);
+            setStatus("settled");
+            onRedeemed();
+          } else if (pollData.status === 'failed') {
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            throw new Error(pollData.error || "Redemption server job failed");
+          }
+        } catch (e: any) {
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          setErrorMsg(e.message || "Polling failed");
+          setStatus("error");
+        }
+      }, 3000);
+
+    } catch (e: any) {
+      setErrorMsg(e.message || "Redemption request failed");
+      setStatus("error");
+    }
   }
 
   const explorerUrl = txHash ? getExplorerUrl(cheque.targetChainId, txHash) : "#";
@@ -43,8 +137,84 @@ export function RedemptionPanel({ cheque, onRedeemed }: RedemptionPanelProps) {
                 This calls the Settlement API to post the nullifier and trigger the ERC-20 transfer.
               </p>
             </div>
+            <div className="pt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs text-muted-foreground flex justify-between px-2 mb-3"
+                onClick={() => setShowAdvanced(!showAdvanced)}
+              >
+                Advanced Configuration {showAdvanced ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </Button>
+
+              <AnimatePresence>
+                {showAdvanced && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden space-y-3 pb-4"
+                  >
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5 flex flex-col">
+                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Service URL</label>
+                        <input value={serverUrl} onChange={e => setServerUrl(e.target.value)} className="w-full font-mono text-xs bg-background/50 border border-glass-border rounded px-2 h-8" />
+                      </div>
+                      <div className="space-y-1.5 flex flex-col">
+                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Recipient (You)</label>
+                        <input value={recipient} onChange={e => setRecipient(e.target.value)} placeholder="0x..." className="w-full font-mono text-[10px] bg-background/50 border border-glass-border rounded px-2 h-8" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Original Auth Signature (From Proof Step)</label>
+                      <input value={signature} onChange={e => setSignature(e.target.value)} placeholder="0x..." className="w-full font-mono text-xs bg-background/50 border border-glass-border rounded px-2 h-8" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5 flex flex-col">
+                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Source RPC (Base)</label>
+                        <input value={sourceRpcUrl} onChange={e => setSourceRpcUrl(e.target.value)} className="w-full font-mono text-xs bg-background/50 border border-glass-border rounded px-2 h-8" />
+                      </div>
+                      <div className="space-y-1.5 flex flex-col">
+                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Source Cashier</label>
+                        <input value={sourceCashierAddress} onChange={e => setSourceCashierAddress(e.target.value)} className="w-full font-mono text-[10px] bg-background/50 border border-glass-border rounded px-2 h-8" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5 flex flex-col">
+                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Target RPC (OP)</label>
+                        <input value={targetRpcUrl} onChange={e => setTargetRpcUrl(e.target.value)} className="w-full font-mono text-xs bg-background/50 border border-glass-border rounded px-2 h-8" />
+                      </div>
+                      <div className="space-y-1.5 flex flex-col">
+                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Proof Registry</label>
+                        <input value={targetProofRegistryAddress} onChange={e => setTargetProofRegistryAddress(e.target.value)} className="w-full font-mono text-[10px] bg-background/50 border border-glass-border rounded px-2 h-8" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Relayer Private Key (Mock)</label>
+                      <input type="password" value={relayerPrivateKey} onChange={e => setRelayerPrivateKey(e.target.value)} className="w-full font-mono text-xs bg-background/50 border border-glass-border rounded px-2 h-8" />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             <Button onClick={handleRedeem} className="w-full h-12 gap-2 glow-green text-base font-semibold">
               <Banknote className="w-5 h-5" /> Redeem {cheque.denomination} USDC
+            </Button>
+          </motion.div>
+        )}
+
+        {status === "error" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-destructive">Redemption Failed</p>
+                <p className="text-xs text-muted-foreground mt-1">{errorMsg}</p>
+              </div>
+            </div>
+            <Button onClick={() => setStatus("ready")} variant="outline" className="w-full border-glass-border">
+              Retry Redemption
             </Button>
           </motion.div>
         )}

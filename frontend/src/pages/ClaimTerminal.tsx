@@ -28,7 +28,7 @@ export default function ClaimTerminal() {
     if (found) {
       setCheque(found);
     } else {
-      const chain = Number(searchParams.get("chain")) || 10;
+      const chain = Number(searchParams.get("chain")) || 11155111;
       const denom = Number(searchParams.get("denom")) || 1000;
       setCheque({
         id,
@@ -44,8 +44,41 @@ export default function ClaimTerminal() {
   }
 
   function handleLookup() {
-    if (!chequeIdInput.trim()) return;
-    loadCheque(chequeIdInput.trim());
+    const raw = chequeIdInput.trim();
+    if (!raw) return;
+
+    // If user pasted a full Magic Link URL, extract the id param from it
+    try {
+      const url = new URL(raw);
+      const id = url.searchParams.get("id");
+      const chain = url.searchParams.get("chain");
+      const denom = url.searchParams.get("denom");
+      if (id && id.startsWith("0x")) {
+        // Update input to show just the clean id
+        setChequeIdInput(id);
+        // Build a synthetic cheque from the URL params (overrides localStorage if not found)
+        const found = findCheque(id);
+        if (found) {
+          setCheque(found);
+        } else {
+          setCheque({
+            id,
+            denomination: Number(denom) || 1000,
+            targetChainId: Number(chain) || 11155111,
+            compliance: false,
+            proven: false,
+            redeemed: false,
+            timestamp: Date.now(),
+          });
+        }
+        setLooked(true);
+        return;
+      }
+    } catch {
+      // Not a URL — fall through to raw id lookup
+    }
+
+    loadCheque(raw);
   }
 
   const queryString = cheque ? `?id=${cheque.id}&chain=${cheque.targetChainId}&denom=${cheque.denomination}` : "";
