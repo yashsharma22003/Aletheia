@@ -29,17 +29,19 @@ This phase relies on the Employer's infrastructure to handle the heavy cryptogra
     *   *Inputs:* storage proof, employer signature, denomination, and target chain id.
     *   *Public Inputs:* Recipient, cheque id, target chain id, and a nullifier hash.
 *   **Solving & Proving:** The Employer executes the Noir compiled circuit (`nargo execute`) and uses Barretenberg (`bb prove`) to generate the massive 50MB zk-SNARK proof.
-*   **Off-Chain Routing:** The Employer submits the proof to the Chainlink Proof Oracle workflow.
-*   **Proof Registry:** The Oracle initiates a CCIP cross-chain transaction, storing the `chequeId => proofHex` mapping in the `ProofRegistry` on the destination network.
+*   **Off-Chain Storage:** The Employer submits the full proof to the **Prover Service** (their own backend), which persists the raw ~50MB proof in a database keyed by `chequeId` via `POST /api/v1/proofs`.
+*   **Oracle Submission:** The Prover Service then forwards the proof to the Chainlink Proof Oracle workflow.
+*   **Proof Registry:** The Oracle computes `keccak256(proof)` inside the CRE enclave and initiates a CCIP cross-chain transaction, storing only the `chequeId => keccak256(proof)` mapping (32 bytes) in the `ProofRegistry` on the destination network. The full raw proof is **never** written on-chain.
 
 ### 1.5 Verification & Settlement (TEE Service)
 *   **Client Submission:** When the Recipient is ready to claim, their client application prompts them for an ECDSA signature over `(chequeId, recipientAddress)`.
 *   **Asynchronous Redemption:** The Recipient submits this signature to the **TEE Verification Service** (e.g., AWS Nitro Enclave).
 *   **Native Validation:** The TEE securely:
-    1. Fetches the ZK Proof from the `ProofRegistry`.
-    2. Verifies the Recipient's signature matches the public `recipient` input of the proof.
-    3. Runs the native SNARK verifier (`bb verify`).
-    4. Computes the `nullifierHash`.
+    1. Fetches the full raw ZK Proof from the **Prover Service API** (`GET /api/v1/proofs/{chequeId}`).
+    2. Re-hashes the received proof (`keccak256(proof)`) and validates it against the 32-byte hash stored in the on-chain `ProofRegistry`.
+    3. Verifies the Recipient's signature matches the public `recipient` input of the proof.
+    4. Runs the native SNARK verifier (`bb verify`).
+    5. Computes the `nullifierHash`.
 *   **Settlement Engine:** The TEE Verification Service posts a meta-transaction with the `nullifierHash` to the Source Cashier. The smart contract consumes the nullifier (preventing double-spend) and releases the 1600 units of funds to the recipient. No plaintext data is exposed outside the TEE.
 
 ---
@@ -52,6 +54,7 @@ To successfully integrate the decentralized network and the client application, 
 *   **Role:** Acts as the bridge from Employer to Blockchain.
 *   **Endpoint:** `POST /api/v1/oracle/submit_proof`
 *   **Caller:** Employer Backend.
+*   **What the Oracle Does:** The Oracle **must not** write the full proof on-chain. It computes `keccak256(proof)` and writes only the 32-byte hash to the `ProofRegistry` via CCIP.
 *   **Request Payload Schema:**
     ```json
     {
@@ -85,10 +88,10 @@ To successfully integrate the decentralized network and the client application, 
 
 ### 2.3 Integration Context Summary
 These endpoints decouple the heavy cryptographic lifting from the user's local device. 
-1. The Employer computes the massive SNARK proof locally.
+1. The Employer computes the massive SNARK proof locally and stores the full raw proof in the **Prover Service database** (keyed by `chequeId`).
 2. The CRE securely acts as an encrypted tunnel to compliance APIs via Confidential HTTP.
-3. The Oracle pushes the proof to the `ProofRegistry`.
-4. The Verification Service handles signature validation inside a TEE, deferring the posting of the nullifier and the final redemption of funds.
+3. The Oracle receives the proof, computes `keccak256(proof)`, and pushes **only the 32-byte hash** to the `ProofRegistry` on-chain (via CCIP). Gas costs are minimized this way.
+4. The Employee's Verification Service fetches the full raw proof from the Prover Service API (`GET /api/v1/proofs/{chequeId}`), re-hashes it to validate against the on-chain `ProofRegistry`, then handles signature validation inside a TEE, deferring the posting of the nullifier and the final redemption of funds.
 
 ---
 

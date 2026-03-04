@@ -51,15 +51,18 @@ The frontend executes the split "Verify -> Redeem" phase.
 
 ### 4.1 Invoking the Proving Service (REST API)
 *   **Tunneling Compliance:** The frontend may first need to periodically check the CRE (or Prover Service) to see if the cheque's compliance attestation has securely arrived from the Confidential HTTP workflow.
-*   **Proving Request:** The frontend sends a `POST` request to the off-chain Proving Service containing:
-    *   The locally generated Noir Witness.
-    *   The encrypted compliance payload (if routed via client).
-    *   The public inputs.
-*   **Response:** The Proving Service returns a lightweight (e.g., UltraHonk) zk-SNARK proof.
+*   **Fetching the Pre-Generated Proof:** Because the full ~50MB ZK proof is stored off-chain in the **Prover Service database** (not on-chain in the `ProofRegistry`), the Employee's client must first retrieve it:
+    *   **Endpoint:** `GET /api/v1/proofs/{chequeId}` on the Prover Service.
+    *   **Response:** The raw `zkSnarkProofHex` blob (~50MB) keyed to the given `chequeId`.
+*   **TEE Submission:** The client sends a `POST` request to the off-chain **TEE Verification Service** containing:
+    *   The fetched raw ZK proof (`zkSnarkProofHex`).
+    *   The public inputs (recipient address, cheque ID, nullifier hash).
+    *   The Employee's ECDSA signature.
+*   **Response:** The TEE Verification Service re-hashes the proof internally (`keccak256(proof)`) and validates it against the 32-byte hash in the on-chain `ProofRegistry` before proceeding with native SNARK verification.
 
 ### 4.2 Step 1: Proof Validity Registration (On-Chain)
-*   **Submission:** The frontend formats the zk-SNARK proof and the public inputs for EVM consumption.
-*   **Transaction:** The frontend prompts the user to submit an on-chain transaction to the `CompliantCashier` on the **Target Chain**. This calls the native verifier, updating the cheque state to `Compliance - true`, but *releases no funds*.
+*   **Submission:** The frontend formats the raw zk-SNARK proof (fetched from the Prover Service) and the public inputs for EVM consumption.
+*   **Transaction:** The frontend prompts the user to submit an on-chain transaction to the `CompliantCashier` on the **Target Chain**. The contract calls the native verifier *and* checks that `keccak256(submittedProof)` matches the hash stored in the `ProofRegistry` — confirming the proof was legitimately registered by the Chainlink Oracle. This updates the cheque state to `Compliance - true`, but *releases no funds*.
 
 ### 4.3 Step 2: Asynchronous Redemption (Off-Chain -> On-Chain)
 *   **Redemption Call:** When the Recipient actually wants their funds, the frontend interacts with the **Verification Service API** (`POST /api/v1/settlement/redeem`).

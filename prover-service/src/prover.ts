@@ -70,12 +70,30 @@ export interface ProofResult {
 /**
  * Generates a ZK proof using nargo + bb.
  *
+ * ## Proof Storage Architecture (Split On-Chain / Off-Chain)
+ *
+ * The full raw ~50MB proof is NEVER written on-chain. Instead:
+ *   - **Off-chain (this service):** The raw `proofHex` is saved to `jobWorkDir`
+ *     (see step 4 below) and is served via `GET /api/v1/proofs/{chequeId}`.
+ *     This is the canonical off-chain store that the Employee's TEE Verification
+ *     Service fetches from when redeeming.
+ *   - **On-chain (ProofRegistry):** Only `keccak256(proof)` (32 bytes) is written
+ *     by the Chainlink Proof Oracle via a CCIP cross-chain transaction. This keeps
+ *     gas costs negligible while preserving on-chain verifiability.
+ *
+ * The TEE Verification Service must:
+ *   1. Fetch the raw proof from `GET /api/v1/proofs/{chequeId}`
+ *   2. Re-hash it (`keccak256(proof)`) and compare against the `ProofRegistry`
+ *   3. Run the native SNARK verifier (`bb verify`) inside the enclave
+ *
  * Steps:
  *  1. Copies Prover.toml from job working directory into circuits/
  *  2. Runs `nargo execute` to generate the witness
- *  3. Runs `bb prove` to generate the proof
- *  4. Runs `bb verify` to self-check
- *  5. Returns the proof as hex
+ *  3. Runs `bb prove` to generate the proof (~50MB output)
+ *  4. Saves raw proof artifact to jobWorkDir (this is the off-chain backing store)
+ *  5. Runs `bb verify` to self-check
+ *  6. Submits proof to the Chainlink Oracle (which hashes it before writing on-chain)
+ *  7. Returns the proof as hex
  *
  * @param jobWorkDir - directory containing the generated Prover.toml
  */
@@ -152,7 +170,10 @@ export async function generateProof(jobWorkDir: string): Promise<ProofResult> {
         if (verified) {
             console.log('[prover] ✅ Proof verified successfully');
 
-            // 6. Submit Proof to Chainlink CRE Proof Oracle
+            // 6. Submit full raw proof to Chainlink CRE Proof Oracle.
+            // NOTE: The Oracle computes keccak256(proof) inside its CRE enclave and writes
+            // ONLY the 32-byte hash to the ProofRegistry on-chain via CCIP. The full raw
+            // proof stays here in jobWorkDir as the off-chain backing store for GET /api/v1/proofs/{chequeId}.
             try {
                 // The Prover job holds tracking metadata. We extract chequeId to pass to the Oracle
                 const chequeIdRaw = fs.readFileSync(path.join(jobWorkDir, 'chequeId.txt'), 'utf8');

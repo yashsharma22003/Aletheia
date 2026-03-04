@@ -16,10 +16,10 @@ The diagram should clearly delineate four distinct environments where processing
 *   **Employer Wallet:** Deposits ERC20 funds and generates ZK witnesses + SNARK proofs locally.
 *   **Employee Frontend:** Signs claim payloads and submits them to the Verification Service.
 *   **ComplianceCashier (Smart Contract - Source Chain):** Holds employer funds and emits `ChequeCreated`. Starts with `isCompliant = false`.
-*   **ProofRegistry (Smart Contract - Target Chain):** Stores valid Zero-Knowledge proof hashes.
+*   **ProofRegistry (Smart Contract - Target Chain):** Stores the `keccak256` hashes of valid Zero-Knowledge proofs, mapping `chequeId => keccak256(proof)`. The full raw proof (~50MB) is never stored on-chain; only the 32-byte hash is written to save gas.
 *   **Compliance Oracle (Chainlink CRE):** Listens for `ChequeCreated`, performs Confidential HTTP KYC checks, encrypts the result in-memory, and writes it back to the Source Chain.
-*   **Proof Oracle (Chainlink CRE):** Receives the SNARK proof from the Employer and executes a CCIP cross-chain transaction to write the proof to the Target Chain's `ProofRegistry`.
-*   **Verification Service (CC TEE):** Express API running in an enclave. Receives the employee's claim (signature + nullifierHash). Verifies the proof natively inside the enclave against the `ProofRegistry`, verifies the employee's signature, and executes the final meta-transaction to release funds from the Cashier to the Employee.
+*   **Proof Oracle (Chainlink CRE):** Receives the full SNARK proof from the Employer's Prover Service. Computes `keccak256(proof)` inside the CRE enclave, then executes a CCIP cross-chain transaction to write **only the 32-byte hash** to the Target Chain's `ProofRegistry`. The Prover Service retains the full raw proof in its own database.
+*   **Verification Service (CC TEE):** Express API running in an enclave. Receives the employee's claim (signature + raw proof fetched from the Prover Service off-chain API). Fetches the 32-byte hash from the on-chain `ProofRegistry` and re-hashes the received proof to verify authenticity. Then verifies the employee's signature and runs the native SNARK verifier inside the enclave. Executes the final meta-transaction to release funds from the Cashier to the Employee.
 
 ## 4. Key Security Themes to Highlight
 *   **Data Residency/Privacy:** Emphasize that raw employee data *only* exists during the Employer's local proof generation and within the Verification Service (CC TEE). The `chequeId` remains private because verification happens natively inside the enclave rather than on-chain.

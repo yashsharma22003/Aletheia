@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 228 40% 6%;
+    --foreground: 220 20% 93%;
+
+    --card: 228 35% 9%;
+    --card-foreground: 220 20% 93%;
+
+    --popover: 228 35% 9%;
+    --popover-foreground: 220 20% 93%;
+
+    --primary: 155 100% 41%;
+    --primary-foreground: 228 40% 6%;
+
+    --secondary: 228 30% 14%;
+    --secondary-foreground: 220 20% 93%;
+
+    --muted: 228 25% 16%;
+    --muted-foreground: 220 10% 55%;
+
+    --accent: 255 100% 69%;
+    --accent-foreground: 220 20% 93%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 220 20% 93%;
+
+    --border: 228 20% 18%;
+    --input: 228 20% 18%;
+    --ring: 155 100% 41%;
+
+    --radius: 0.75rem;
+
+    --glass: 228 35% 9%;
+    --glass-border: 228 20% 22%;
+
+    --sidebar-background: 228 35% 7%;
+    --sidebar-foreground: 220 20% 93%;
+    --sidebar-primary: 155 100% 41%;
+    --sidebar-primary-foreground: 228 40% 6%;
+    --sidebar-accent: 228 25% 14%;
+    --sidebar-accent-foreground: 220 20% 93%;
+    --sidebar-border: 228 20% 18%;
+    --sidebar-ring: 155 100% 41%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-card/60 backdrop-blur-xl border border-glass-border rounded-xl;
+  }
+
+  .font-mono-data {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .text-gradient-green {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-emerald-300;
+  }
+
+  .text-gradient-amethyst {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-accent to-purple-300;
+  }
+
+  .glow-green {
+    box-shadow: 0 0 20px hsl(155 100% 41% / 0.15), 0 0 60px hsl(155 100% 41% / 0.05);
+  }
+
+  .glow-amethyst {
+    box-shadow: 0 0 20px hsl(255 100% 69% / 0.15), 0 0 60px hsl(255 100% 69% / 0.05);
+  }
+}
+
+/* Geometric loader animation */
+@keyframes polygon-rotate {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(90deg) scale(1.1); }
+  50% { transform: rotate(180deg) scale(1); }
+  75% { transform: rotate(270deg) scale(0.9); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes polygon-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 5px hsl(255 100% 69% / 0.2); }
+  50% { box-shadow: 0 0 25px hsl(255 100% 69% / 0.5), 0 0 50px hsl(255 100% 69% / 0.2); }
+}
