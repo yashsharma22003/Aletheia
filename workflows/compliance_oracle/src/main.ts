@@ -141,8 +141,8 @@ const onLogTrigger = (runtime: Runtime<Config>, log: EVMLog): string => {
 
         // 3. Write Report back to Source Chain Cashier
         const reportPayload = encodeAbiParameters(
-            parseAbiParameters('bytes32, bool'),
-            [chequeId as Hex, true], // hardcoded true for the mock
+            parseAbiParameters('uint8, bytes32, bool'),
+            [0, chequeId as Hex, true], // 0 = compliance reportType
         );
 
         const reportRequest = prepareReportRequest(reportPayload);
@@ -166,7 +166,10 @@ const onLogTrigger = (runtime: Runtime<Config>, log: EVMLog): string => {
             gasConfig: { gasLimit: '500000' },
         }).result();
 
-        return `Success: Compliance report written. Tx Status: ${writeResult.txStatus}`;
+        const txHashStr = writeResult.txHash ? bytesToHex(writeResult.txHash) : "none";
+        console.log(`[ComplianceOracle] Report Write Result: Status=${writeResult.txStatus}, Hash=${txHashStr}`);
+
+        return `Success: Compliance report written. Tx Status: ${writeResult.txStatus}, TxHash: ${txHashStr}`;
 
     } catch (e: any) {
         console.error(`[ComplianceOracle] Failed to execute workflow: ${e.message}`);

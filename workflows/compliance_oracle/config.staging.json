@@ -5,7 +5,7 @@
       "chainName": "ethereum-testnet-sepolia",
       "rpcUrl": "${rpc_ethereum_testnet_sepolia}",
       "registryAddress": "0xf0a81ab75D85D9d3Dec6784aa7b2B2fff1550195",
-      "chequeContractAddress": "0x0000000000000000000000000000000000000000"
+      "chequeContractAddress": "0xd32e613a93f8D683A45163692f9B5eFE03E77Ba9"
     },
     {
       "chainId": "84532",
