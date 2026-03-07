@@ -101,81 +101,73 @@ const verifyCompliance = (sendRequester: ConfidentialHTTPSendRequester, config: 
 
 
 // 4. Workflow Logic
-const onLogTrigger = (runtime: Runtime<Config>, log: EVMLog): string => {
-    // 1. Parse Event Data
-    let decodedEvent;
-    try {
-        decodedEvent = decodeLog(log);
-    } catch (e) {
-        console.error("Failed to decode log:", e);
-        return "Error: Failed to decode log";
-    }
+const createLogTrigger = (sourceChain: Config['chains'][0]) => {
+    return (runtime: Runtime<Config>, log: EVMLog): string => {
+        // 1. Parse Event Data
+        let decodedEvent;
+        try {
+            decodedEvent = decodeLog(log);
+        } catch (e) {
+            console.error("Failed to decode log:", e);
+            return "Error: Failed to decode log";
+        }
 
-    const { chequeId, owner, targetChainId } = decodedEvent.args;
+        const { chequeId, owner, targetChainId } = decodedEvent.args;
 
-    console.log(`[ComplianceOracle] Event Detected! Owner: ${owner}, Cheque: ${chequeId}, Target: ${targetChainId}`);
+        console.log(`[ComplianceOracle] Event Detected! Owner: ${owner}, Cheque: ${chequeId}, Target: ${targetChainId}, Source: ${sourceChain.chainName}`);
 
-    const logAddressHex = bytesToHex(log.address).toLowerCase();
-    const sourceChain = runtime.config.chains.find(c =>
-        c.chequeContractAddress &&
-        c.chequeContractAddress.toLowerCase() === logAddressHex
-    );
+        // 2. Execute Confidential HTTP Request
+        const confHTTPClient = new ConfidentialHTTPClient();
 
-    if (!sourceChain) {
-        return `Error: Could not identify source chain for contract ${logAddressHex}`;
-    }
+        try {
+            // Execute the fetch function inside the enclave and get consensus
+            const result = confHTTPClient.sendRequest(
+                runtime,
+                verifyCompliance,
+                consensusIdenticalAggregation<VerificationResult>()
+            )(runtime.config, chequeId as string, owner as string).result();
 
-    // 2. Execute Confidential HTTP Request
-    const confHTTPClient = new ConfidentialHTTPClient();
+            // The result contains the mock logic
+            console.log(`[ComplianceOracle] Successfully generated compliance status for ${chequeId}.`);
 
-    try {
-        // Execute the fetch function inside the enclave and get consensus
-        const result = confHTTPClient.sendRequest(
-            runtime,
-            verifyCompliance,
-            consensusIdenticalAggregation<VerificationResult>()
-        )(runtime.config, chequeId as string, owner as string).result();
+            // 3. Write Report back to Source Chain Cashier
+            const reportPayload = encodeAbiParameters(
+                parseAbiParameters('uint8, bytes32, bool'),
+                [0, chequeId as Hex, true], // 0 = compliance reportType
+            );
 
-        // The result contains the mock logic
-        console.log(`[ComplianceOracle] Successfully generated compliance status for ${chequeId}.`);
+            const reportRequest = prepareReportRequest(reportPayload);
+            const report = runtime.report(reportRequest).result();
 
-        // 3. Write Report back to Source Chain Cashier
-        const reportPayload = encodeAbiParameters(
-            parseAbiParameters('uint8, bytes32, bool'),
-            [0, chequeId as Hex, true], // 0 = compliance reportType
-        );
+            const sourceNetwork = getNetwork({
+                chainFamily: 'evm',
+                chainSelectorName: sourceChain.chainName,
+                isTestnet: true
+            });
 
-        const reportRequest = prepareReportRequest(reportPayload);
-        const report = runtime.report(reportRequest).result();
+            if (!sourceNetwork) return `Error: Network not found for ${sourceChain.chainName}`;
 
-        const sourceNetwork = getNetwork({
-            chainFamily: 'evm',
-            chainSelectorName: sourceChain.chainName,
-            isTestnet: true
-        });
+            const writeClient = new cre.capabilities.EVMClient(sourceNetwork.chainSelector.selector);
 
-        if (!sourceNetwork) return `Error: Network not found for ${sourceChain.chainName}`;
+            console.log(`[ComplianceOracle] Writing report to ${sourceChain.chainName} (${sourceChain.chequeContractAddress})...`);
 
-        const writeClient = new cre.capabilities.EVMClient(sourceNetwork.chainSelector.selector);
+            const writeResult = writeClient.writeReport(runtime, {
+                receiver: sourceChain.chequeContractAddress,
+                report: report,
+                gasConfig: { gasLimit: '500000' },
+            }).result();
 
-        console.log(`[ComplianceOracle] Writing report to ${sourceChain.chainName} (${sourceChain.chequeContractAddress})...`);
+            const txHashStr = writeResult.txHash ? bytesToHex(writeResult.txHash) : "none";
+            console.log(`[ComplianceOracle] Report Write Result: Status=${writeResult.txStatus}, Hash=${txHashStr}`);
 
-        const writeResult = writeClient.writeReport(runtime, {
-            receiver: sourceChain.chequeContractAddress,
-            report: report,
-            gasConfig: { gasLimit: '500000' },
-        }).result();
+            return `Success: Compliance report written. Tx Status: ${writeResult.txStatus}, TxHash: ${txHashStr}`;
 
-        const txHashStr = writeResult.txHash ? bytesToHex(writeResult.txHash) : "none";
-        console.log(`[ComplianceOracle] Report Write Result: Status=${writeResult.txStatus}, Hash=${txHashStr}`);
-
-        return `Success: Compliance report written. Tx Status: ${writeResult.txStatus}, TxHash: ${txHashStr}`;
-
-    } catch (e: any) {
-        console.error(`[ComplianceOracle] Failed to execute workflow: ${e.message}`);
-        return `Error: ${e.message}`;
-    }
-}
+        } catch (e: any) {
+            console.error(`[ComplianceOracle] Failed to execute workflow: ${e.message}`);
+            return `Error: ${e.message}`;
+        }
+    };
+};
 
 // 5. Initialization Logic - Multi-Chain Support
 const initWorkflow = (config: Config) => {
@@ -208,7 +200,7 @@ const initWorkflow = (config: Config) => {
             evmClient.logTrigger({
                 addresses: [hexToBase64(chain.chequeContractAddress as Hex)],
             }),
-            onLogTrigger
+            createLogTrigger(chain)
         );
     });
 }

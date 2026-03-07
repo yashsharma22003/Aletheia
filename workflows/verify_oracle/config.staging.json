@@ -4,15 +4,15 @@
             "chainId": "11155111",
             "chainName": "ethereum-testnet-sepolia",
             "rpcUrl": "${rpc_ethereum_testnet_sepolia}",
-            "registryAddress": "0x0000000000000000000000000000000000000000",
+            "registryAddress": "0xE825d11F112EcCaF3215c08f8bec12EC4d8Ed3F7",
             "cashierAddress": "0xd32e613a93f8D683A45163692f9B5eFE03E77Ba9"
         },
         {
             "chainId": "84532",
             "chainName": "ethereum-testnet-sepolia-base-1",
             "rpcUrl": "${rpc_ethereum_testnet_sepolia_base_1}",
-            "registryAddress": "0x0000000000000000000000000000000000000000",
-            "cashierAddress": "0x0000000000000000000000000000000000000000"
+            "registryAddress": "0x9FcdD7C57C515B5aec910e7E7B6B0d62A09000bd",
+            "cashierAddress": "0xf44d925116aD93Ddf3A634eCcFF01a59f4b2679b"
         },
         {
             "chainId": "11155420",
@@ -25,8 +25,8 @@
             "chainId": "421614",
             "chainName": "ethereum-testnet-sepolia-arbitrum-1",
             "rpcUrl": "${rpc_ethereum_testnet_sepolia_arbitrum_1}",
-            "registryAddress": "0x0000000000000000000000000000000000000000",
-            "cashierAddress": "0x0000000000000000000000000000000000000000"
+            "registryAddress": "0x9FcdD7C57C515B5aec910e7E7B6B0d62A09000bd",
+            "cashierAddress": "0xf44d925116aD93Ddf3A634eCcFF01a59f4b2679b"
         },
         {
             "chainId": "43113",

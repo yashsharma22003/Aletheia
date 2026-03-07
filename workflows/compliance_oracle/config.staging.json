@@ -4,29 +4,29 @@
       "chainId": "11155111",
       "chainName": "ethereum-testnet-sepolia",
       "rpcUrl": "${rpc_ethereum_testnet_sepolia}",
-      "registryAddress": "0xf0a81ab75D85D9d3Dec6784aa7b2B2fff1550195",
+      "registryAddress": "0xE88f55B3CADaC2f332E7b1d38599B4729A1c782d",
       "chequeContractAddress": "0xd32e613a93f8D683A45163692f9B5eFE03E77Ba9"
     },
     {
       "chainId": "84532",
       "chainName": "ethereum-testnet-sepolia-base-1",
       "rpcUrl": "${rpc_ethereum_testnet_sepolia_base_1}",
-      "registryAddress": "0x0000000000000000000000000000000000000000",
-      "chequeContractAddress": "0x0000000000000000000000000000000000000000"
+      "registryAddress": "0xF47F1A8CC7291CA46Bb8228C7942BC96854B8003",
+      "chequeContractAddress": "0xf44d925116aD93Ddf3A634eCcFF01a59f4b2679b"
     },
     {
       "chainId": "11155420",
       "chainName": "ethereum-testnet-sepolia-optimism-1",
       "rpcUrl": "${rpc_ethereum_testnet_sepolia_optimism_1}",
-      "registryAddress": "0x0000000000000000000000000000000000000000",
-      "chequeContractAddress": "0x9AC6F9B50fc8B808a1f8f631618F89500ee2DBce"
+      "registryAddress": "0x92c4Fe214c00A5B87EB8539F33aCbE68f7f93a3C",
+      "chequeContractAddress": "0xC0d7A1253E9Bc2e3a78A417F2c7B06EdeE525018"
     },
     {
       "chainId": "421614",
       "chainName": "ethereum-testnet-sepolia-arbitrum-1",
       "rpcUrl": "${rpc_ethereum_testnet_sepolia_arbitrum_1}",
-      "registryAddress": "0x0000000000000000000000000000000000000000",
-      "chequeContractAddress": "0x0000000000000000000000000000000000000000"
+      "registryAddress": "0xF47F1A8CC7291CA46Bb8228C7942BC96854B8003",
+      "chequeContractAddress": "0xf44d925116aD93Ddf3A634eCcFF01a59f4b2679b"
     },
     {
       "chainId": "43113",

@@ -3,13 +3,25 @@
         {
             "chainId": "11155111",
             "chainName": "ethereum-testnet-sepolia",
-            "vaultAddress": "0x24539f784823DB3DBec8022b21cAb703dB916037",
+            "vaultAddress": "0xE41e394394c44554B373bdcb9d52a3B7DEb59C6C",
             "rebalanceThreshold": "1000000"
         },
         {
             "chainId": "11155420",
             "chainName": "ethereum-testnet-sepolia-optimism-1",
-            "vaultAddress": "0x631c0440d166E19FA1F4f6196491dfb730b468D3",
+            "vaultAddress": "0x056a3452ab5F1A6a0e4A5A6c7fb7f2fD48ae6Cef",
+            "rebalanceThreshold": "10000"
+        },
+        {
+            "chainId": "84532",
+            "chainName": "ethereum-testnet-sepolia-base-1",
+            "vaultAddress": "0xf1008566a204C5E435B16986fa049F7Dd57c9CaE",
+            "rebalanceThreshold": "10000"
+        },
+        {
+            "chainId": "421614",
+            "chainName": "ethereum-testnet-sepolia-arbitrum-1",
+            "vaultAddress": "0xf1008566a204C5E435B16986fa049F7Dd57c9CaE",
             "rebalanceThreshold": "10000"
         }
     ]

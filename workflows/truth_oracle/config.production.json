@@ -4,19 +4,19 @@
       "chainId": "11155111",
       "chainName": "ethereum-testnet-sepolia",
       "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
-      "registryAddress": "0x0000000000000000000000000000000000000000"
+      "registryAddress": "0xE88f55B3CADaC2f332E7b1d38599B4729A1c782d"
     },
     {
       "chainId": "11155420",
       "chainName": "ethereum-testnet-sepolia-optimism-1",
       "rpcUrl": "https://sepolia.optimism.io",
-      "registryAddress": "0x0000000000000000000000000000000000000000"
+      "registryAddress": "0x92c4Fe214c00A5B87EB8539F33aCbE68f7f93a3C"
     },
     {
       "chainId": "421614",
       "chainName": "ethereum-testnet-sepolia-arbitrum-1",
       "rpcUrl": "https://sepolia-rollup.arbitrum.io/rpc",
-      "registryAddress": "0x0000000000000000000000000000000000000000"
+      "registryAddress": "0xF47F1A8CC7291CA46Bb8228C7942BC96854B8003"
     },
     {
       "chainId": "43113",
@@ -28,7 +28,7 @@
       "chainId": "84532",
       "chainName": "ethereum-testnet-sepolia-base-1",
       "rpcUrl": "https://sepolia.base.org",
-      "registryAddress": "0x0000000000000000000000000000000000000000"
+      "registryAddress": "0xF47F1A8CC7291CA46Bb8228C7942BC96854B8003"
     }
   ]
 }
