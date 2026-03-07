@@ -14,6 +14,7 @@ export default function RedeemPage() {
 
   const chequeId = searchParams.get("id") || "";
   const chain = Number(searchParams.get("chain")) || 10;
+  const schain = Number(searchParams.get("schain")) || 11155111;
   const denom = Number(searchParams.get("denom")) || 1000;
 
   useEffect(() => {
@@ -24,6 +25,7 @@ export default function RedeemPage() {
     const standaloneCheque: Cheque = {
       id: chequeId,
       denomination: denom,
+      sourceChainId: schain,
       targetChainId: chain,
       compliance: false, // Not relevant for claimant UI display, handled by backend
       proven: true,      // Assume proven if they are at the redeem step
@@ -32,7 +34,7 @@ export default function RedeemPage() {
     };
 
     setCheque(standaloneCheque);
-  }, [chequeId, chain, denom]);
+  }, [chequeId, chain, schain, denom]);
 
   function onRedeemed() {
     if (cheque) {

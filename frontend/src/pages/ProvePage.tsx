@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ComplianceGate } from "@/components/claim/ComplianceGate";
 import { ProvingEngine } from "@/components/claim/ProvingEngine";
 import { findCheque, updateCheque } from "@/lib/cheque-store";
-import { Cheque, shortenHash, getChainName } from "@/lib/mock-data";
+import { Cheque, shortenHash, getChainName, CHAINS } from "@/lib/mock-data";
 import { motion } from "framer-motion";
 import { Cpu, CheckCircle2, ArrowRight, ArrowLeft, Building2, Banknote } from "lucide-react";
 
@@ -20,6 +20,7 @@ export default function ProvePage() {
 
   const chequeId = searchParams.get("id") || "";
   const chain = Number(searchParams.get("chain")) || 10;
+  const schain = Number(searchParams.get("schain")) || 11155111;
   const denom = Number(searchParams.get("denom")) || 1000;
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export default function ProvePage() {
       const mockCheque: Cheque = {
         id: chequeId,
         denomination: denom,
+        sourceChainId: schain,
         targetChainId: chain,
         compliance: false,
         proven: false,
@@ -42,7 +44,7 @@ export default function ProvePage() {
       };
       setCheque(mockCheque);
     }
-  }, [chequeId, chain, denom]);
+  }, [chequeId, chain, schain, denom]);
 
   function onCompliancePassed() {
     setStep("proving");
@@ -155,7 +157,12 @@ export default function ProvePage() {
         <>
           {step === "compliance" && (
             <motion.div key="compliance" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-              <ComplianceGate onPassed={onCompliancePassed} />
+              <ComplianceGate
+                chequeId={cheque.id}
+                chainId={chain}
+                cashierAddress={CHAINS.find(c => c.id === chain)?.cashierAddress || "0x00...00"}
+                onPassed={onCompliancePassed}
+              />
             </motion.div>
           )}
 

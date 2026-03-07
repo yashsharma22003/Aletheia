@@ -65,6 +65,7 @@ export function RedemptionPanel({ cheque, onRedeemed }: RedemptionPanelProps) {
       const bodyJSON = {
         chequeId: extractCleanChequeId(),
         recipientAddress: recipient,
+        sourceChainId: cheque.sourceChainId,
         targetChainId: cheque.targetChainId
       };
 

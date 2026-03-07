@@ -186,6 +186,7 @@ export function ProvingEngine({ cheque, onVerified, onSigned }: ProvingEnginePro
         depositorAddress: depositorAddress || address,
         recipient: recipientAddress,
         nonce: parseInt(nonce || "0"),
+        sourceChainId: cheque.sourceChainId,
         targetChainId: parseInt(customTargetChain),
         denomination: cheque.denomination,
         chequeId: extractCleanChequeId(),  // Sanitized: bare 0x... or undefined (fallback to nonce)

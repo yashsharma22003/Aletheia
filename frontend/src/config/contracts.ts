@@ -20,18 +20,18 @@ export const CONTRACT_ADDRESSES: Record<number, { vault: `0x${string}`; cashier:
         truthRegistry: "0x92c4Fe214c00A5B87EB8539F33aCbE68f7f93a3C",
         usdc: "0x5fd84259d66Cd46123540766Be93DFE6D43130D7",
     },
-    421614: { // Arb Sepolia (Mocked for core contracts, but actual USDC provided)
-        vault: "0x0000000000000000000000000000000000000000",
-        cashier: "0x0000000000000000000000000000000000000000",
-        proofRegistry: "0x0000000000000000000000000000000000000000",
-        truthRegistry: "0x0000000000000000000000000000000000000000",
+    421614: { // Arb Sepolia
+        vault: "0xf1008566a204C5E435B16986fa049F7Dd57c9CaE",
+        cashier: "0xf44d925116aD93Ddf3A634eCcFF01a59f4b2679b",
+        proofRegistry: "0x9FcdD7C57C515B5aec910e7E7B6B0d62A09000bd",
+        truthRegistry: "0xF47F1A8CC7291CA46Bb8228C7942BC96854B8003",
         usdc: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
     },
-    84532: { // Base Sepolia (Mocked for core contracts, but actual USDC provided)
-        vault: "0x0000000000000000000000000000000000000000",
-        cashier: "0x0000000000000000000000000000000000000000",
-        proofRegistry: "0x0000000000000000000000000000000000000000",
-        truthRegistry: "0x0000000000000000000000000000000000000000",
+    84532: { // Base Sepolia
+        vault: "0xf1008566a204C5E435B16986fa049F7Dd57c9CaE",
+        cashier: "0xf44d925116aD93Ddf3A634eCcFF01a59f4b2679b",
+        proofRegistry: "0x9FcdD7C57C515B5aec910e7E7B6B0d62A09000bd",
+        truthRegistry: "0xF47F1A8CC7291CA46Bb8228C7942BC96854B8003",
         usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
     }
 };

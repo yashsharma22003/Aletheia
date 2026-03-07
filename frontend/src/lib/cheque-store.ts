@@ -34,5 +34,5 @@ export function findCheque(chequeId: string): Cheque | undefined {
 }
 
 export function generateMagicLink(cheque: Cheque): string {
-  return `/claim?id=${cheque.id}&chain=${cheque.targetChainId}&denom=${cheque.denomination}`;
+  return `/claim?id=${cheque.id}&chain=${cheque.targetChainId}&schain=${cheque.sourceChainId || 11155111}&denom=${cheque.denomination}`;
 }

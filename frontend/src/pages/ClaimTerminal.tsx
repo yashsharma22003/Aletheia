@@ -6,21 +6,25 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { Terminal, Cpu, Banknote, ArrowRight, Building2, User } from "lucide-react";
+import { TARGET_CHAINS } from "@/config/contracts";
 
-function extractChequeParams(raw: string): { id: string; chain: number; denom: number } | null {
+const DEFAULT_CHAIN_ID = TARGET_CHAINS[0].id;
+
+function extractChequeParams(raw: string): { id: string; chain: number; schain: number; denom: number } | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
   // Full magic link URL
   try {
     const url = new URL(trimmed);
     const id = url.searchParams.get("id");
-    const chain = Number(url.searchParams.get("chain")) || 11155111;
+    const chain = Number(url.searchParams.get("chain")) || DEFAULT_CHAIN_ID;
+    const schain = Number(url.searchParams.get("schain")) || DEFAULT_CHAIN_ID;
     const denom = Number(url.searchParams.get("denom")) || 1000;
-    if (id && /^0x[0-9a-fA-F]{64}$/.test(id)) return { id, chain, denom };
+    if (id && /^0x[0-9a-fA-F]{64}$/.test(id)) return { id, chain, schain, denom };
   } catch { /* not a URL */ }
   // Bare bytes32 hex
   if (/^0x[0-9a-fA-F]{64}$/.test(trimmed)) {
-    return { id: trimmed, chain: 11155111, denom: 1000 };
+    return { id: trimmed, chain: DEFAULT_CHAIN_ID, schain: DEFAULT_CHAIN_ID, denom: 1000 };
   }
   return null;
 }
@@ -64,7 +68,7 @@ function RoleCard({
       setTimeout(() => setError(false), 2000);
       return;
     }
-    navigate(`${targetPath}?id=${params.id}&chain=${params.chain}&denom=${params.denom}`);
+    navigate(`${targetPath}?id=${params.id}&chain=${params.chain}&schain=${params.schain}&denom=${params.denom}`);
   }
 
   return (
@@ -94,8 +98,8 @@ function RoleCard({
               onChange={e => { setInput(e.target.value); setError(false); }}
               onKeyDown={e => e.key === "Enter" && handleGo()}
               className={`font-mono text-xs bg-secondary/50 transition-colors ${error
-                  ? "border-destructive focus-visible:ring-destructive"
-                  : "border-glass-border"
+                ? "border-destructive focus-visible:ring-destructive"
+                : "border-glass-border"
                 }`}
             />
             {error && (

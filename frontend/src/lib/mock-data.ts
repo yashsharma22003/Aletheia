@@ -1,6 +1,7 @@
 export interface Cheque {
   id: string;
   denomination: number;
+  sourceChainId: number;
   targetChainId: number;
   compliance: boolean;
   proven: boolean;
@@ -24,8 +25,8 @@ export interface ChainInfo {
 export const CHAINS: ChainInfo[] = [
   { id: 11155111, name: "Ethereum Sepolia", icon: "⟠", rpcUrl: "https://sepolia.infura.io/v3/7bdf797390454aa4bddf06fe6b361d54", cashierAddress: "0xd32e613a93f8D683A45163692f9B5eFE03E77Ba9" },
   { id: 11155420, name: "Optimism Sepolia", icon: "🔴", rpcUrl: "https://optimism-sepolia.infura.io/v3/7bdf797390454aa4bddf06fe6b361d54", cashierAddress: "0xC0d7A1253E9Bc2e3a78A417F2c7B06EdeE525018" },
-  { id: 421614, name: "Arbitrum Sepolia", icon: "🔵", rpcUrl: "https://arbitrum-sepolia.infura.io/v3/7bdf797390454aa4bddf06fe6b361d54", cashierAddress: "" },
-  { id: 84532, name: "Base Sepolia", icon: "🟢", rpcUrl: "https://base-sepolia.infura.io/v3/7bdf797390454aa4bddf06fe6b361d54", cashierAddress: "" },
+  { id: 421614, name: "Arbitrum Sepolia", icon: "🔵", rpcUrl: "https://arbitrum-sepolia.infura.io/v3/7bdf797390454aa4bddf06fe6b361d54", cashierAddress: "0xf44d925116aD93Ddf3A634eCcFF01a59f4b2679b" },
+  { id: 84532, name: "Base Sepolia", icon: "🟢", rpcUrl: "https://base-sepolia.infura.io/v3/7bdf797390454aa4bddf06fe6b361d54", cashierAddress: "0xf44d925116aD93Ddf3A634eCcFF01a59f4b2679b" },
 ];
 
 export const DENOMINATIONS = [1000, 500, 100];

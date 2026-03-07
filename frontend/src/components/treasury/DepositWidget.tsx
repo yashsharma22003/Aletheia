@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAccount, useWriteContract, usePublicClient } from "wagmi";
 import { parseUnits, erc20Abi, parseEventLogs } from "viem";
-import { CONTRACT_ADDRESSES } from "@/config/contracts";
+import { CONTRACT_ADDRESSES, TARGET_CHAINS } from "@/config/contracts";
 import { ComplianceCashierABI } from "@/config/ComplianceCashierABI";
 
 interface DepositWidgetProps {
@@ -21,7 +21,7 @@ interface DepositWidgetProps {
 export function DepositWidget({ onMinted }: DepositWidgetProps) {
   const { chainId } = useAccount();
   const [amount, setAmount] = useState("");
-  const [targetChain, setTargetChain] = useState(11155420);
+  const [targetChain, setTargetChain] = useState(TARGET_CHAINS[0].id);
   const [mode, setMode] = useState<"auto" | "custom">("auto");
   const [customAmounts, setCustomAmounts] = useState<string[]>(["1000"]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -55,7 +55,7 @@ export function DepositWidget({ onMinted }: DepositWidgetProps) {
     if (denominations.length === 0) return;
 
     // We need the current chain's contract address to interact
-    const currentChainId = chainId || 11155420; // fallback OP Sepolia
+    const currentChainId = chainId || TARGET_CHAINS[0].id;
     const addresses = CONTRACT_ADDRESSES[currentChainId as keyof typeof CONTRACT_ADDRESSES];
 
     if (!addresses || addresses.cashier === "0x0000000000000000000000000000000000000000") {
@@ -121,6 +121,7 @@ export function DepositWidget({ onMinted }: DepositWidgetProps) {
         newCheques = (events as any[]).map((evt) => ({
           id: evt.args.chequeId as string,
           denomination: Number(evt.args.denomination),
+          sourceChainId: currentChainId,
           targetChainId: Number(evt.args.targetChainId),
           compliance: false,
           proven: false,
@@ -134,6 +135,7 @@ export function DepositWidget({ onMinted }: DepositWidgetProps) {
         newCheques = denominations.map(denom => ({
           id: `0x${'0'.repeat(64)}`, // Will be wrong but surface the issue
           denomination: denom,
+          sourceChainId: currentChainId,
           targetChainId: targetChain,
           compliance: false,
           proven: false,

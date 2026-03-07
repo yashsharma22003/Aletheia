@@ -15,5 +15,21 @@
     "truthRegistry": "0xE88f55B3CADaC2f332E7b1d38599B4729A1c782d",
     "chainId": 11155111,
     "deployedAt": 1772388660
+  },
+  "baseSepolia": {
+    "vault": "0xf1008566a204C5E435B16986fa049F7Dd57c9CaE",
+    "cashier": "0xf44d925116aD93Ddf3A634eCcFF01a59f4b2679b",
+    "proofRegistry": "0x9FcdD7C57C515B5aec910e7E7B6B0d62A09000bd",
+    "truthRegistry": "0xF47F1A8CC7291CA46Bb8228C7942BC96854B8003",
+    "chainId": 84532,
+    "deployedAt": 1772878904
+  },
+  "arbSepolia": {
+    "vault": "0xf1008566a204C5E435B16986fa049F7Dd57c9CaE",
+    "cashier": "0xf44d925116aD93Ddf3A634eCcFF01a59f4b2679b",
+    "proofRegistry": "0x9FcdD7C57C515B5aec910e7E7B6B0d62A09000bd",
+    "truthRegistry": "0xF47F1A8CC7291CA46Bb8228C7942BC96854B8003",
+    "chainId": 421614,
+    "deployedAt": 1772879147
   }
 }
