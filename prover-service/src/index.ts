@@ -180,6 +180,29 @@ app.get('/api/proofs/:chequeId', (req, res) => {
 });
 
 // ──────────────────────────────────────────────
+// GET /api/verifications/:chequeId
+// ──────────────────────────────────────────────
+// Retrieve a permanently saved verification payload for CRE verification oracle.
+
+app.get('/api/verifications/:chequeId', (req, res) => {
+    try {
+        const chequeId = req.params.chequeId;
+        const payloadPath = path.resolve(__dirname, '../../prover-service/verifications', `${chequeId}.json`);
+
+        if (!fs.existsSync(payloadPath)) {
+            res.status(404).json({ error: 'Verification payload not found for this chequeId. It may not have been generated or saved yet.' });
+            return;
+        }
+
+        const payloadData = fs.readFileSync(payloadPath, 'utf8');
+        res.json(JSON.parse(payloadData));
+    } catch (err: any) {
+        console.error('[verifications] Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ──────────────────────────────────────────────
 // POST /api/redeem
 // ──────────────────────────────────────────────
 // Validates Employee signature and executes TEE Settlement
@@ -188,10 +211,7 @@ app.post('/api/redeem', async (req, res) => {
     try {
         const body = req.body;
         const required = [
-            'chequeId', 'recipientAddress', 'signature',
-            'sourceRpcUrl', 'sourceCashierAddress',
-            'targetRpcUrl', 'targetProofRegistryAddress',
-            'relayerPrivateKey'
+            'chequeId', 'recipientAddress', 'targetChainId'
         ];
 
         const missing = required.filter(f => !body[f]);
@@ -302,11 +322,13 @@ app.listen(PORT, () => {
 ║  Running on http://localhost:${PORT}                 ║
 ╠══════════════════════════════════════════════════╣
 ║  Endpoints:                                      ║
-║  GET  /api/health        → Service status        ║
-║  POST /api/sign-params   → Get chequeId + hash   ║
-║  POST /api/witness       → Generate witness      ║
-║  POST /api/prove         → Start proof job       ║
-║  GET  /api/prove/:jobId  → Poll job status       ║
+║  GET  /api/health            → Service status        ║
+║  POST /api/sign-params       → Get chequeId + hash   ║
+║  POST /api/witness           → Generate witness      ║
+║  POST /api/prove             → Start proof job       ║
+║  GET  /api/prove/:jobId      → Poll job status       ║
+║  GET  /api/proofs/:chequeId  → Fetch proof json      ║
+║  GET  /api/verifications/:id → Fetch verify payload  ║
 ╚══════════════════════════════════════════════════╝
   `);
 });
