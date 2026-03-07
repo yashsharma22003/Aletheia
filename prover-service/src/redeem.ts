@@ -57,6 +57,7 @@ export interface RedeemParams {
     chequeId: string;
     recipientAddress: string;
     targetChainId: number;
+    sourceChainId: number;
 }
 
 export async function runRedeemPipeline(jobId: string, params: RedeemParams): Promise<void> {
@@ -64,14 +65,15 @@ export async function runRedeemPipeline(jobId: string, params: RedeemParams): Pr
         updateJob(jobId, { status: 'verifying' });
         console.log(`[redeem] Job ${jobId}: starting verification pipeline...`);
 
+        const sourceChainId = params.sourceChainId;
         const targetConfig = chainsConfig[params.targetChainId];
-        const sourceConfig = chainsConfig[11155111]; // Hardcoded Source Chain for Demo
+        const sourceConfig = chainsConfig[sourceChainId];
 
         if (!targetConfig || !targetConfig.rpcUrl || !targetConfig.proofRegistryAddress) {
             throw new Error(`Target chain config not found or incomplete for chainId ${params.targetChainId}`);
         }
         if (!sourceConfig || !sourceConfig.rpcUrl || !sourceConfig.complianceCashierAddress) {
-            throw new Error(`Source chain config not found or incomplete for chainId 11155111`);
+            throw new Error(`Source chain config not found or incomplete for chainId ${sourceChainId}`);
         }
 
         // 1. Setup EVM Client for Target Chain
@@ -87,8 +89,11 @@ export async function runRedeemPipeline(jobId: string, params: RedeemParams): Pr
             args: [params.chequeId as `0x${string}`],
         });
 
-        const amountStr = chequeData[1].toString();
-        console.log(`[redeem] Job ${jobId}: fetched cheque amount: ${amountStr}`);
+        const amountRaw = chequeData[1].toString();
+        // The denomination in the struct is in whole tokens (e.g., 2, 100).
+        // Actual USDC transfer requires 6 decimals
+        const amountStr = (BigInt(amountRaw) * 10n ** 6n).toString();
+        console.log(`[redeem] Job ${jobId}: fetched cheque actual amount: ${amountStr}`);
 
         // 3. Fetch Proof Hash from Target Chain (ProofRegistry)
         console.log(`[redeem] Job ${jobId}: fetching ZK Proof Hash from Target ProofRegistry...`);
@@ -128,7 +133,7 @@ export async function runRedeemPipeline(jobId: string, params: RedeemParams): Pr
             proof: proofHex,
             recipient: params.recipientAddress,
             amount: amountStr, // Dynamically fetched amount
-            sourceChainId: 11155111, // ETH Sepolia natively (locked funds origin for demo)
+            sourceChainId: sourceChainId,
             targetChainId: Number(targetChainIdEVM)
         };
 

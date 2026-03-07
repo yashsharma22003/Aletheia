@@ -211,7 +211,7 @@ app.post('/api/redeem', async (req, res) => {
     try {
         const body = req.body;
         const required = [
-            'chequeId', 'recipientAddress', 'targetChainId'
+            'chequeId', 'recipientAddress', 'targetChainId', 'sourceChainId'
         ];
 
         const missing = required.filter(f => !body[f]);

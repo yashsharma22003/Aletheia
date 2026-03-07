@@ -2,6 +2,7 @@ import { RLP } from '@ethereumjs/rlp';
 export interface WitnessParams {
     sourceRpcUrl: string;       // Renamed from rpcUrl
     sourceContractAddress: string; // Renamed from contractAddress
+    sourceChainId: number;
     depositorAddress: string;
     recipient: string;
     nonce: number;
