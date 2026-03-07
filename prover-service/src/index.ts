@@ -278,6 +278,7 @@ function validateProveParams(body: any): WitnessParams {
     const required = [
         'sourceRpcUrl',        // Renamed
         'sourceContractAddress', // Renamed
+        'sourceChainId',
         'depositorAddress',
         'recipient',
         'nonce',
@@ -298,6 +299,7 @@ function validateProveParams(body: any): WitnessParams {
     return {
         sourceRpcUrl: body.sourceRpcUrl,
         sourceContractAddress: body.sourceContractAddress,
+        sourceChainId: Number(body.sourceChainId),
         depositorAddress: body.depositorAddress,
         recipient: body.recipient,
         nonce: Number(body.nonce),
