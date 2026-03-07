@@ -1,248 +1,218 @@
-import { useState, useEffect } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { findCheque } from "@/lib/cheque-store";
-import { Cheque, shortenHash, getChainName } from "@/lib/mock-data";
-import { motion, AnimatePresence } from "framer-motion";
-import { Terminal, Search, Cpu, Banknote, ArrowRight, CheckCircle2, ShieldAlert } from "lucide-react";
+import { motion } from "framer-motion";
+import { Terminal, Cpu, Banknote, ArrowRight, Building2, User } from "lucide-react";
 
-export default function ClaimTerminal() {
-  const [searchParams] = useSearchParams();
-  const [chequeIdInput, setChequeIdInput] = useState("");
-  const [cheque, setCheque] = useState<Cheque | null>(null);
-  const [looked, setLooked] = useState(false);
-
-  useEffect(() => {
-    const id = searchParams.get("id");
-    if (id) {
-      setChequeIdInput(id);
-      loadCheque(id);
-    }
-  }, [searchParams]);
-
-  function loadCheque(id: string) {
-    const found = findCheque(id);
-    if (found) {
-      setCheque(found);
-    } else {
-      const chain = Number(searchParams.get("chain")) || 11155111;
-      const denom = Number(searchParams.get("denom")) || 1000;
-      setCheque({
-        id,
-        denomination: denom,
-        targetChainId: chain,
-        compliance: false,
-        proven: false,
-        redeemed: false,
-        timestamp: Date.now(),
-      });
-    }
-    setLooked(true);
+function extractChequeParams(raw: string): { id: string; chain: number; denom: number } | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  // Full magic link URL
+  try {
+    const url = new URL(trimmed);
+    const id = url.searchParams.get("id");
+    const chain = Number(url.searchParams.get("chain")) || 11155111;
+    const denom = Number(url.searchParams.get("denom")) || 1000;
+    if (id && /^0x[0-9a-fA-F]{64}$/.test(id)) return { id, chain, denom };
+  } catch { /* not a URL */ }
+  // Bare bytes32 hex
+  if (/^0x[0-9a-fA-F]{64}$/.test(trimmed)) {
+    return { id: trimmed, chain: 11155111, denom: 1000 };
   }
+  return null;
+}
 
-  function handleLookup() {
-    const raw = chequeIdInput.trim();
-    if (!raw) return;
+function RoleCard({
+  icon: Icon,
+  iconColor,
+  borderHover,
+  badge,
+  title,
+  subtitle,
+  description,
+  placeholder,
+  btnLabel,
+  btnClass,
+  targetPath,
+  delay,
+}: {
+  icon: React.ElementType;
+  iconColor: string;
+  borderHover: string;
+  badge: string;
+  badgeClass: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  placeholder: string;
+  btnLabel: string;
+  btnClass: string;
+  targetPath: string;
+  delay: number;
+}) {
+  const navigate = useNavigate();
+  const [input, setInput] = useState("");
+  const [error, setError] = useState(false);
 
-    // If user pasted a full Magic Link URL, extract the id param from it
-    try {
-      const url = new URL(raw);
-      const id = url.searchParams.get("id");
-      const chain = url.searchParams.get("chain");
-      const denom = url.searchParams.get("denom");
-      if (id && id.startsWith("0x")) {
-        // Update input to show just the clean id
-        setChequeIdInput(id);
-        // Build a synthetic cheque from the URL params (overrides localStorage if not found)
-        const found = findCheque(id);
-        if (found) {
-          setCheque(found);
-        } else {
-          setCheque({
-            id,
-            denomination: Number(denom) || 1000,
-            targetChainId: Number(chain) || 11155111,
-            compliance: false,
-            proven: false,
-            redeemed: false,
-            timestamp: Date.now(),
-          });
-        }
-        setLooked(true);
-        return;
-      }
-    } catch {
-      // Not a URL — fall through to raw id lookup
+  function handleGo() {
+    const params = extractChequeParams(input);
+    if (!params) {
+      setError(true);
+      setTimeout(() => setError(false), 2000);
+      return;
     }
-
-    loadCheque(raw);
+    navigate(`${targetPath}?id=${params.id}&chain=${params.chain}&denom=${params.denom}`);
   }
-
-  const queryString = cheque ? `?id=${cheque.id}&chain=${cheque.targetChainId}&denom=${cheque.denomination}` : "";
 
   return (
-    <main className="container max-w-3xl py-8 space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-1 flex items-center gap-2">
-          <Terminal className="w-7 h-7 text-accent" />
-          Claim Terminal
-        </h1>
-        <p className="text-muted-foreground text-sm">Look up a cheque, then choose to validate or redeem.</p>
-      </div>
-
-      {/* Lookup */}
-      <Card className="glass-panel border-glass-border">
-        <CardHeader>
-          <CardTitle className="text-lg">Enter Cheque ID or Magic Link</CardTitle>
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.4 }}
+    >
+      <Card className={`glass-panel border-glass-border h-full transition-all duration-300 hover:${borderHover} group`}>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between">
+            <div className={`p-3 rounded-xl ${iconColor} mb-3`}>
+              <Icon className="w-7 h-7" />
+            </div>
+            <Badge variant="outline" className="text-[10px] border-glass-border text-muted-foreground">{badge}</Badge>
+          </div>
+          <CardTitle className="text-xl">{title}</CardTitle>
+          <p className="text-xs text-muted-foreground font-medium">{subtitle}</p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-3">
+          <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
+
+          <div className="space-y-2">
             <Input
-              placeholder="0x... or paste Magic Link URL"
-              value={chequeIdInput}
-              onChange={e => setChequeIdInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleLookup()}
-              className="bg-secondary/50 border-glass-border font-mono text-xs flex-1"
+              placeholder={placeholder}
+              value={input}
+              onChange={e => { setInput(e.target.value); setError(false); }}
+              onKeyDown={e => e.key === "Enter" && handleGo()}
+              className={`font-mono text-xs bg-secondary/50 transition-colors ${error
+                  ? "border-destructive focus-visible:ring-destructive"
+                  : "border-glass-border"
+                }`}
             />
-            <Button onClick={handleLookup} className="gap-1.5">
-              <Search className="w-4 h-4" /> Lookup
-            </Button>
+            {error && (
+              <p className="text-[11px] text-destructive">Enter a valid cheque ID (0x...) or Magic Link URL</p>
+            )}
           </div>
+
+          <Button onClick={handleGo} className={`w-full gap-2 ${btnClass}`}>
+            {btnLabel} <ArrowRight className="w-4 h-4" />
+          </Button>
         </CardContent>
       </Card>
+    </motion.div>
+  );
+}
 
-      {/* Cheque info + action cards */}
-      <AnimatePresence>
-        {looked && cheque && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-            {/* Info banner */}
-            <Card className="glass-panel border-glass-border">
-              <CardContent className="p-4 flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Cheque ID</p>
-                    <p className="font-mono text-xs">{shortenHash(cheque.id, 8)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Denomination</p>
-                    <p className="font-mono text-sm font-bold text-primary">{cheque.denomination} USDC</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Target Chain</p>
-                    <p className="text-sm">{getChainName(cheque.targetChainId)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {cheque.redeemed && <Badge className="bg-primary/15 text-primary text-xs">Settled</Badge>}
-                  {cheque.compliance && !cheque.redeemed && <Badge className="bg-primary/10 text-primary text-xs">Proven</Badge>}
-                  {!cheque.compliance && <Badge variant="secondary" className="text-xs">Pending</Badge>}
-                </div>
-              </CardContent>
-            </Card>
+export default function ClaimTerminal() {
+  return (
+    <main className="container max-w-4xl py-10 space-y-8 animate-fade-in">
+      {/* Header */}
+      <div className="text-center space-y-2">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4 }}
+          className="flex items-center justify-center gap-3 mb-1"
+        >
+          <Terminal className="w-8 h-8 text-primary" />
+          <h1 className="text-4xl font-bold tracking-tight">Claim Terminal</h1>
+        </motion.div>
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.15 }}
+          className="text-muted-foreground"
+        >
+          Select your role to proceed. Each portal operates independently.
+        </motion.p>
+      </div>
 
-            {/* Two action cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Validate Card */}
-              <Card className={`glass-panel border-glass-border transition-all ${cheque.proven ? "opacity-60" : "hover:border-accent/50"}`}>
-                <CardContent className="p-6 space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-accent/10">
-                      <Cpu className="w-6 h-6 text-accent" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">Validate Cheque</p>
-                      <p className="text-xs text-muted-foreground">Compliance & proof generation</p>
-                    </div>
-                  </div>
+      {/* Role Banner */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="p-4 rounded-xl border border-glass-border bg-secondary/30 flex items-start gap-3"
+      >
+        <div className="mt-0.5 text-muted-foreground">
+          <Terminal className="w-4 h-4" />
+        </div>
+        <div>
+          <p className="text-sm font-medium">Decoupled Proving Model</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Proving (ZK proof generation) and Redemption (settlement) are separate operations by design.
+            Employers generate proofs using server-grade infrastructure. Employees redeem independently with just a Cheque ID.
+          </p>
+        </div>
+      </motion.div>
 
-                  <div className="flex items-center gap-2">
-                    {cheque.proven ? (
-                      <>
-                        <CheckCircle2 className="w-4 h-4 text-primary" />
-                        <span className="text-xs text-primary font-medium">Proven</span>
-                      </>
-                    ) : (
-                      <>
-                        <ShieldAlert className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Pending validation</span>
-                      </>
-                    )}
-                  </div>
+      {/* Two role cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Prover Card */}
+        <RoleCard
+          icon={Building2}
+          iconColor="bg-accent/10 text-accent"
+          borderHover="border-accent/50"
+          badge="Employer / Prover"
+          badgeClass=""
+          title="Prover Portal"
+          subtitle="Generate & submit ZK proof"
+          description="You have server-grade infrastructure. Sign the cheque binding, generate the ~50 MB zk-SNARK proof via Barretenberg, and submit it to the Proof Registry via Chainlink CRE."
+          placeholder="Cheque ID (0x...) or Magic Link URL"
+          btnLabel="Open Prover Portal"
+          btnClass="bg-accent text-accent-foreground hover:bg-accent/90 glow-amethyst"
+          targetPath="/claim/prove"
+          delay={0.3}
+        />
 
-                  <Button
-                    asChild={!cheque.proven}
-                    disabled={cheque.proven}
-                    variant={cheque.proven ? "secondary" : "default"}
-                    className="w-full gap-2"
-                  >
-                    {cheque.proven ? (
-                      <span>Already Validated</span>
-                    ) : (
-                      <Link to={`/claim/prove${queryString}`}>
-                        Start Validation <ArrowRight className="w-4 h-4" />
-                      </Link>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
+        {/* Claimant Card */}
+        <RoleCard
+          icon={User}
+          iconColor="bg-primary/10 text-primary"
+          borderHover="border-primary/50"
+          badge="Employee / Claimant"
+          badgeClass=""
+          title="Claimant Portal"
+          subtitle="Redeem your cheque"
+          description="Zero cryptographic burden. Paste your Cheque ID or Magic Link — the settlement is handled entirely by the Chainlink Verify Oracle inside a hardware enclave. No wallet signature, no proof generation."
+          placeholder="Cheque ID (0x...) or Magic Link URL"
+          btnLabel="Open Claimant Portal"
+          btnClass="glow-green"
+          targetPath="/claim/redeem"
+          delay={0.4}
+        />
+      </div>
 
-              {/* Redeem Card */}
-              <Card className={`glass-panel border-glass-border transition-all ${!cheque.proven ? "opacity-60" : cheque.redeemed ? "opacity-60" : "hover:border-primary/50"}`}>
-                <CardContent className="p-6 space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <Banknote className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">Redeem Funds</p>
-                      <p className="text-xs text-muted-foreground">Settle via Settlement API</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {cheque.redeemed ? (
-                      <>
-                        <CheckCircle2 className="w-4 h-4 text-primary" />
-                        <span className="text-xs text-primary font-medium">Settled</span>
-                      </>
-                    ) : cheque.proven ? (
-                      <>
-                        <CheckCircle2 className="w-4 h-4 text-primary" />
-                        <span className="text-xs text-muted-foreground">Ready to redeem</span>
-                      </>
-                    ) : (
-                      <>
-                        <ShieldAlert className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Requires validation first</span>
-                      </>
-                    )}
-                  </div>
-
-                  <Button
-                    asChild={cheque.proven && !cheque.redeemed}
-                    disabled={!cheque.proven || cheque.redeemed}
-                    variant={cheque.proven && !cheque.redeemed ? "default" : "secondary"}
-                    className="w-full gap-2"
-                  >
-                    {cheque.redeemed ? (
-                      <span>Already Redeemed</span>
-                    ) : cheque.proven ? (
-                      <Link to={`/claim/redeem${queryString}`}>
-                        Redeem Now <ArrowRight className="w-4 h-4" />
-                      </Link>
-                    ) : (
-                      <span>Validate First</span>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
+      {/* Role info footer */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5 }}
+        className="grid grid-cols-1 md:grid-cols-3 gap-3"
+      >
+        {[
+          { icon: Building2, label: "Prover (Employer)", desc: "Signs & generates proof on server infrastructure" },
+          { icon: Cpu, label: "Verifier (Chainlink)", desc: "Validates proof hash inside DON enclave" },
+          { icon: User, label: "Claimant (Employee)", desc: "Submits chequeId — no compute required" },
+        ].map(({ icon: Icon, label, desc }, i) => (
+          <div key={label} className="p-3 rounded-lg border border-glass-border bg-secondary/20 flex items-start gap-2.5">
+            <Icon className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs font-medium">{label}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{desc}</p>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        ))}
+      </motion.div>
     </main>
   );
 }

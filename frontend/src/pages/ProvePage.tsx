@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ComplianceGate } from "@/components/claim/ComplianceGate";
@@ -8,7 +8,7 @@ import { ProvingEngine } from "@/components/claim/ProvingEngine";
 import { findCheque, updateCheque } from "@/lib/cheque-store";
 import { Cheque, shortenHash, getChainName } from "@/lib/mock-data";
 import { motion } from "framer-motion";
-import { Cpu, CheckCircle2, ArrowRight, ArrowLeft } from "lucide-react";
+import { Cpu, CheckCircle2, ArrowRight, ArrowLeft, Building2, Banknote } from "lucide-react";
 
 type ProveStep = "compliance" | "proving" | "done";
 
@@ -76,16 +76,21 @@ export default function ProvePage() {
 
   return (
     <main className="container max-w-3xl py-8 space-y-6 animate-fade-in">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-1 flex items-center gap-2">
+          <div className="flex items-center gap-2 mb-1">
+            <Building2 className="w-5 h-5 text-accent" />
+            <span className="text-xs text-accent font-semibold uppercase tracking-widest">Prover Portal</span>
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             <Cpu className="w-7 h-7 text-accent" />
-            Validate Cheque
+            Generate ZK Proof
           </h1>
-          <p className="text-muted-foreground text-sm">Compliance verification & proof generation</p>
+          <p className="text-muted-foreground text-sm">Compliance gate → Barretenberg proof synthesis → On-chain registration</p>
         </div>
         <Button asChild variant="ghost" size="sm" className="gap-1.5">
-          <Link to={`/claim${queryString}`}>
+          <Link to={`/claim`}>
             <ArrowLeft className="w-4 h-4" /> Back
           </Link>
         </Button>
@@ -110,7 +115,7 @@ export default function ProvePage() {
                   <p className="text-sm">{getChainName(cheque.targetChainId)}</p>
                 </div>
               </div>
-              <Badge className="bg-accent/15 text-accent text-xs">Proving Flow</Badge>
+              <Badge className="bg-accent/15 text-accent text-xs">Employer / Prover</Badge>
             </CardContent>
           </Card>
         </motion.div>
@@ -125,16 +130,21 @@ export default function ProvePage() {
                 <CheckCircle2 className="w-16 h-16 text-primary mx-auto" />
               </motion.div>
               <div>
-                <p className="text-xl font-bold text-primary">Already Verified</p>
+                <p className="text-xl font-bold text-primary">Proof Already Registered</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  This cheque has already been validated on-chain. You can proceed to redemption.
+                  This cheque's ZK proof has been submitted and registered on-chain. The claimant can now redeem independently.
                 </p>
               </div>
-              <Button asChild className="gap-2 glow-green">
-                <Link to={`/claim/redeem${queryString}`}>
-                  Go to Redemption <ArrowRight className="w-4 h-4" />
-                </Link>
-              </Button>
+              <div className="flex gap-3 justify-center flex-wrap">
+                <Button asChild variant="outline" className="gap-2 border-glass-border">
+                  <Link to="/claim">← Claim Terminal</Link>
+                </Button>
+                <Button asChild className="gap-2 glow-green">
+                  <Link to={`/claim/redeem${queryString}`}>
+                    Redeem This Cheque <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </motion.div>
@@ -158,20 +168,36 @@ export default function ProvePage() {
           {step === "done" && (
             <motion.div key="done" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
               <Card className="glass-panel border-glass-border">
-                <CardContent className="p-8 text-center space-y-4">
+                <CardContent className="p-8 text-center space-y-6">
                   <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 200 }}>
                     <CheckCircle2 className="w-16 h-16 text-primary mx-auto" />
                   </motion.div>
                   <div>
-                    <p className="text-xl font-bold text-primary">Proof Verified!</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Your cheque has been validated on-chain. You can now redeem your funds.
+                    <p className="text-xl font-bold text-primary">Proof Registered On-Chain</p>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                      The ZK proof has been submitted to the Proof Registry via Chainlink CRE.
+                      The cheque is now claimable. Share the chequeId with the recipient.
                     </p>
                   </div>
-                  <Button asChild className="gap-2 glow-green">
-                    <Link to={`/claim/redeem${queryString}`}>
-                      Go to Redemption <ArrowRight className="w-4 h-4" />
-                    </Link>
+
+                  {/* Non-mandatory redeem prompt */}
+                  <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 space-y-3">
+                    <div className="flex items-center gap-2 justify-center">
+                      <Banknote className="w-4 h-4 text-primary" />
+                      <p className="text-sm font-medium text-primary">Testing end-to-end?</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      If you want to verify the full redemption flow (e.g. for testing purposes), you can proceed to the Claimant Portal for this cheque now.
+                    </p>
+                    <Button asChild className="gap-2 glow-green">
+                      <Link to={`/claim/redeem${queryString}`}>
+                        Redeem This Cheque <ArrowRight className="w-4 h-4" />
+                      </Link>
+                    </Button>
+                  </div>
+
+                  <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
+                    <Link to="/claim">← Back to Claim Terminal</Link>
                   </Button>
                 </CardContent>
               </Card>

@@ -22,13 +22,6 @@ export function RedemptionPanel({ cheque, onRedeemed }: RedemptionPanelProps) {
   // Prover Service State
   const [serverUrl, setServerUrl] = useState("http://localhost:3000");
   const [recipient, setRecipient] = useState(address || "");
-  const [signature, setSignature] = useState(cheque.walletSignature || "");
-  const [sourceRpcUrl, setSourceRpcUrl] = useState("https://sepolia.base.org");
-  const [sourceCashierAddress, setSourceCashierAddress] = useState("0x30Da28EbDF9a4FBa4fB652E63FDCfA20E1cc55fc");
-  const [targetRpcUrl, setTargetRpcUrl] = useState("https://sepolia.optimism.io");
-  const [targetProofRegistryAddress, setTargetProofRegistryAddress] = useState("0x17c040d346bE8C67CB6aFB88863A25b8109d7df9");
-  // Hardhat test account 0 private key default for relaying tests
-  const [relayerPrivateKey, setRelayerPrivateKey] = useState("0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -64,18 +57,15 @@ export function RedemptionPanel({ cheque, onRedeemed }: RedemptionPanelProps) {
     setErrorMsg(null);
 
     try {
-      if (!signature) throw new Error("Wallet Signature from the previous Proving phase is required to authorize redemption.");
+      // Signature is made optional for primary CCIP/CRE path
+      // Only thrown if TEE verification service alternative flow explicitly requires it
+      // if (!signature) throw new Error("Wallet Signature from the previous Proving phase is required to authorize redemption.");
 
       const serverRaw = serverUrl.replace(/\/$/, '');
       const bodyJSON = {
         chequeId: extractCleanChequeId(),
         recipientAddress: recipient,
-        signature: signature,
-        sourceRpcUrl,
-        sourceCashierAddress,
-        targetRpcUrl,
-        targetProofRegistryAddress,
-        relayerPrivateKey
+        targetChainId: cheque.targetChainId
       };
 
       const res = await fetch(`${serverRaw}/api/redeem`, {
@@ -164,34 +154,6 @@ export function RedemptionPanel({ cheque, onRedeemed }: RedemptionPanelProps) {
                         <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Recipient (You)</label>
                         <input value={recipient} onChange={e => setRecipient(e.target.value)} placeholder="0x..." className="w-full font-mono text-[10px] bg-background/50 border border-glass-border rounded px-2 h-8" />
                       </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Original Auth Signature (From Proof Step)</label>
-                      <input value={signature} onChange={e => setSignature(e.target.value)} placeholder="0x..." className="w-full font-mono text-xs bg-background/50 border border-glass-border rounded px-2 h-8" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5 flex flex-col">
-                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Source RPC (Base)</label>
-                        <input value={sourceRpcUrl} onChange={e => setSourceRpcUrl(e.target.value)} className="w-full font-mono text-xs bg-background/50 border border-glass-border rounded px-2 h-8" />
-                      </div>
-                      <div className="space-y-1.5 flex flex-col">
-                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Source Cashier</label>
-                        <input value={sourceCashierAddress} onChange={e => setSourceCashierAddress(e.target.value)} className="w-full font-mono text-[10px] bg-background/50 border border-glass-border rounded px-2 h-8" />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5 flex flex-col">
-                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Target RPC (OP)</label>
-                        <input value={targetRpcUrl} onChange={e => setTargetRpcUrl(e.target.value)} className="w-full font-mono text-xs bg-background/50 border border-glass-border rounded px-2 h-8" />
-                      </div>
-                      <div className="space-y-1.5 flex flex-col">
-                        <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Proof Registry</label>
-                        <input value={targetProofRegistryAddress} onChange={e => setTargetProofRegistryAddress(e.target.value)} className="w-full font-mono text-[10px] bg-background/50 border border-glass-border rounded px-2 h-8" />
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Relayer Private Key (Mock)</label>
-                      <input type="password" value={relayerPrivateKey} onChange={e => setRelayerPrivateKey(e.target.value)} className="w-full font-mono text-xs bg-background/50 border border-glass-border rounded px-2 h-8" />
                     </div>
                   </motion.div>
                 )}

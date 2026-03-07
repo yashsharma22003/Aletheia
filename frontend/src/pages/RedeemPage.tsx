@@ -4,10 +4,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RedemptionPanel } from "@/components/claim/RedemptionPanel";
-import { findCheque, updateCheque } from "@/lib/cheque-store";
 import { Cheque, shortenHash, getChainName } from "@/lib/mock-data";
 import { motion } from "framer-motion";
-import { Banknote, ShieldAlert, ArrowLeft, ArrowRight } from "lucide-react";
+import { Banknote, ArrowLeft, User, ShieldCheck } from "lucide-react";
 
 export default function RedeemPage() {
   const [searchParams] = useSearchParams();
@@ -19,32 +18,28 @@ export default function RedeemPage() {
 
   useEffect(() => {
     if (!chequeId) return;
-    const found = findCheque(chequeId);
-    if (found) {
-      setCheque(found);
-    } else {
-      const mockCheque: Cheque = {
-        id: chequeId,
-        denomination: denom,
-        targetChainId: chain,
-        compliance: false,
-        proven: false,
-        redeemed: false,
-        timestamp: Date.now(),
-      };
-      setCheque(mockCheque);
-    }
+
+    // We do NOT use local storage findCheque here anymore to ensure Claimant flow is truly stateless.
+    // It operates purely off the URL parameters provided by the magic link.
+    const standaloneCheque: Cheque = {
+      id: chequeId,
+      denomination: denom,
+      targetChainId: chain,
+      compliance: false, // Not relevant for claimant UI display, handled by backend
+      proven: true,      // Assume proven if they are at the redeem step
+      redeemed: false,
+      timestamp: Date.now(),
+    };
+
+    setCheque(standaloneCheque);
   }, [chequeId, chain, denom]);
 
   function onRedeemed() {
     if (cheque) {
-      const updated = updateCheque(cheque.id, { redeemed: true });
-      const refreshed = updated.find(c => c.id === cheque.id);
-      if (refreshed) setCheque(refreshed);
+      // Don't update local storage here either, keep it stateless
+      setCheque({ ...cheque, redeemed: true });
     }
   }
-
-  const queryString = `?id=${chequeId}&chain=${chain}&denom=${denom}`;
 
   if (!chequeId) {
     return (
@@ -63,20 +58,40 @@ export default function RedeemPage() {
 
   return (
     <main className="container max-w-3xl py-8 space-y-6 animate-fade-in">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-1 flex items-center gap-2">
+          <div className="flex items-center gap-2 mb-1">
+            <User className="w-5 h-5 text-primary" />
+            <span className="text-xs text-primary font-semibold uppercase tracking-widest">Claimant Portal</span>
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             <Banknote className="w-7 h-7 text-primary" />
             Redeem Funds
           </h1>
-          <p className="text-muted-foreground text-sm">Settle your validated cheque</p>
+          <p className="text-muted-foreground text-sm">Settlement via Chainlink Verify Oracle — no proof generation required</p>
         </div>
         <Button asChild variant="ghost" size="sm" className="gap-1.5">
-          <Link to={`/claim${queryString}`}>
+          <Link to="/claim">
             <ArrowLeft className="w-4 h-4" /> Back
           </Link>
         </Button>
       </div>
+
+      {/* Zero-burden notice */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="flex items-start gap-3 p-3 rounded-lg border border-primary/20 bg-primary/5"
+      >
+        <ShieldCheck className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+        <p className="text-xs text-muted-foreground">
+          <span className="text-primary font-medium">Zero cryptographic burden.</span>{" "}
+          You don't need to generate a proof. The Proof Registry is queried by the Chainlink Verify Oracle inside a hardware enclave.
+          Just provide your Cheque ID below.
+        </p>
+      </motion.div>
 
       {/* Cheque info banner */}
       {cheque && (
@@ -97,37 +112,18 @@ export default function RedeemPage() {
                   <p className="text-sm">{getChainName(cheque.targetChainId)}</p>
                 </div>
               </div>
-              <Badge className="bg-primary/15 text-primary text-xs">Redemption Flow</Badge>
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
-
-      {/* Not proven - blocked */}
-      {cheque && !cheque.compliance && !cheque.proven && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <Card className="glass-panel border-glass-border">
-            <CardContent className="p-8 text-center space-y-4">
-              <ShieldAlert className="w-16 h-16 text-muted-foreground mx-auto" />
-              <div>
-                <p className="text-xl font-bold">Validation Required</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  This cheque must be validated before it can be redeemed. Complete the proving flow first.
-                </p>
+              <div className="flex gap-2">
+                {cheque.redeemed && <Badge className="bg-primary/15 text-primary text-xs">Settled</Badge>}
+                <Badge className="bg-secondary text-muted-foreground text-xs">Employee / Claimant</Badge>
               </div>
-              <Button asChild variant="outline" className="gap-2 border-glass-border">
-                <Link to={`/claim/prove${queryString}`}>
-                  Go to Validation <ArrowRight className="w-4 h-4" />
-                </Link>
-              </Button>
             </CardContent>
           </Card>
         </motion.div>
       )}
 
-      {/* Proven - show redemption */}
-      {cheque && cheque.compliance && cheque.proven && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+      {/* RedemptionPanel — always shown, no gating on proven state */}
+      {cheque && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
           <RedemptionPanel cheque={cheque} onRedeemed={onRedeemed} />
         </motion.div>
       )}
