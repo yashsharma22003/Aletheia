@@ -5,7 +5,7 @@ import {
     type Runtime,
     prepareReportRequest,
 } from '@chainlink/cre-sdk'
-import { encodeAbiParameters, parseAbiParameters, type Hex, keccak256 } from 'viem'
+import { encodeAbiParameters, parseAbiParameters, type Hex, keccak256, toHex } from 'viem'
 import { z } from 'zod'
 
 // ============================================================================
@@ -101,9 +101,9 @@ const onHttpTrigger = (runtime: Runtime<Config>, requestPayload: any): string =>
         return "Error: Failed to process input payload";
     }
 
-    const { chequeId, proof, recipient, sourceChainId, targetChainId } = payload;
+    const { chequeId, proof, recipient, amount, sourceChainId, targetChainId } = payload;
 
-    if (!chequeId || !proof || !recipient || !sourceChainId || !targetChainId) {
+    if (!chequeId || !proof || !recipient || !amount || !sourceChainId || !targetChainId) {
         return `Error: Missing required fields. Got: ${Object.keys(payload).join(', ')}`;
     }
 
@@ -116,6 +116,7 @@ const onHttpTrigger = (runtime: Runtime<Config>, requestPayload: any): string =>
     console.log(`[VerifyOracle] Cheque: ${chequeId}`);
     console.log(`[VerifyOracle] Computed proof hash: ${proofHash}`);
     console.log(`[VerifyOracle] Recipient: ${recipient}`);
+    console.log(`[VerifyOracle] Amount: ${amount}`);
 
     const targetChain = runtime.config.chains.find(c => c.chainId === targetChainId.toString());
     const sourceChain = runtime.config.chains.find(c => c.chainId === sourceChainId.toString());
@@ -134,37 +135,49 @@ const onHttpTrigger = (runtime: Runtime<Config>, requestPayload: any): string =>
     // [NOTE: In production, use an EVMRead capability here for on-chain read.]
     // For now, we trust the proof submission path and write the release report.
 
-    // ---- 3. Write release report to ComplianceCashier on the source chain ----
+    // ---- 3. Write release report to ComplianceCashier on the target chain ----
     try {
-        // Payload type 1 = Release
-        // (uint8 payloadType, bytes32 chequeId, bytes32 proofHash, address recipient)
+        // To match Solidity's `abi.decode(report, (uint8, bytes32, address, uint256, bool))`:
+        // uint8 is padded to 32 bytes in Solidity abi.decode when part of a tuple.
         const reportPayload = encodeAbiParameters(
-            parseAbiParameters('uint8, bytes32, bytes32, address'),
-            [1, chequeId as Hex, proofHash, recipient as Hex]
+            [
+                { name: 'payloadType', type: 'uint8' },
+                { name: 'nullifierHash', type: 'bytes32' },
+                { name: 'recipient', type: 'address' },
+                { name: 'amount', type: 'uint256' },
+                { name: 'status', type: 'bool' }
+            ],
+            [1, chequeId as Hex, recipient as Hex, BigInt(amount), true]
         );
 
         const reportRequest = prepareReportRequest(reportPayload);
         const report = runtime.report(reportRequest).result();
 
-        const sourceNetwork = getNetwork({
+        const targetNetwork = getNetwork({
             chainFamily: 'evm',
-            chainSelectorName: sourceChain.chainName,
+            chainSelectorName: targetChain.chainName,
             isTestnet: true
         });
 
-        if (!sourceNetwork) return `Error: Network not found for ${sourceChain.chainName}`;
+        if (!targetNetwork) return `Error: Network not found for ${targetChain.chainName}`;
 
-        const writeClient = new cre.capabilities.EVMClient(sourceNetwork.chainSelector.selector);
+        const writeClient = new cre.capabilities.EVMClient(targetNetwork.chainSelector.selector);
 
-        console.log(`[VerifyOracle] Writing release report to ${sourceChain.chainName} (${sourceChain.cashierAddress})...`);
+        console.log(`[VerifyOracle] Writing release report to ${targetChain.chainName} (${targetChain.cashierAddress})...`);
 
         const writeResult = writeClient.writeReport(runtime, {
-            receiver: sourceChain.cashierAddress,
+            receiver: targetChain.cashierAddress as string,
             report: report,
             gasConfig: { gasLimit: '300000' },
         }).result();
 
-        return `Success: Release report written for cheque ${chequeId}. Recipient: ${recipient}. Tx Status: ${writeResult.txStatus}`;
+        const txHashHex = writeResult.txHash
+            ? (typeof writeResult.txHash === 'string'
+                ? writeResult.txHash
+                : toHex(new Uint8Array(writeResult.txHash as any)))
+            : '(not available in simulation dry-run)';
+
+        return `Success: Release report written for cheque ${chequeId}. Recipient: ${recipient}. Tx Status: ${writeResult.txStatus}. Tx Hash: ${txHashHex}`;
 
     } catch (e: any) {
         console.error(`[VerifyOracle] Failed to execute: ${e.message}`);

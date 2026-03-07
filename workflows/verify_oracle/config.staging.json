@@ -5,7 +5,7 @@
             "chainName": "ethereum-testnet-sepolia",
             "rpcUrl": "${rpc_ethereum_testnet_sepolia}",
             "registryAddress": "0x0000000000000000000000000000000000000000",
-            "cashierAddress": "0x0000000000000000000000000000000000000000"
+            "cashierAddress": "0xd32e613a93f8D683A45163692f9B5eFE03E77Ba9"
         },
         {
             "chainId": "84532",
@@ -18,8 +18,8 @@
             "chainId": "11155420",
             "chainName": "ethereum-testnet-sepolia-optimism-1",
             "rpcUrl": "${rpc_ethereum_testnet_sepolia_optimism_1}",
-            "registryAddress": "0x5725706D4eBa77F5fad3f64f1Bc9EA9E073B60c4",
-            "cashierAddress": "0x0000000000000000000000000000000000000000"
+            "registryAddress": "0x95925576bf79242015DaF228343122f59C90B8F3",
+            "cashierAddress": "0xC0d7A1253E9Bc2e3a78A417F2c7B06EdeE525018"
         },
         {
             "chainId": "421614",

@@ -16,7 +16,7 @@
             "chainId": "11155420",
             "chainName": "ethereum-testnet-sepolia-optimism-1",
             "rpcUrl": "${rpc_ethereum_testnet_sepolia_optimism_1}",
-            "registryAddress": "0xE825d11F112EcCaF3215c08f8bec12EC4d8Ed3F7"
+            "registryAddress": "0x95925576bf79242015DaF228343122f59C90B8F3"
         },
         {
             "chainId": "421614",

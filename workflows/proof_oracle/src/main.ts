@@ -152,7 +152,16 @@ const onHttpTrigger = (runtime: Runtime<Config>, requestPayload: any): string =>
             gasConfig: { gasLimit: '200000' }, // Small now — only storing a bytes32 hash
         }).result();
 
-        return `Success: Proof hash registered. Hash: ${proofHash}. Tx Status: ${writeResult.txStatus}`;
+        const txHashHex = writeResult.txHash
+            ? (typeof writeResult.txHash === 'string'
+                ? writeResult.txHash
+                : bytesToHex(writeResult.txHash as Uint8Array))
+            : '(not available in simulation dry-run)';
+
+        console.log(`[ProofOracle] ✅ Tx Hash: ${txHashHex}`);
+        console.log(`[ProofOracle] ✅ Tx Status: ${writeResult.txStatus}`);
+
+        return `Success: Proof hash registered. Hash: ${proofHash}. Tx Hash: ${txHashHex}. Tx Status: ${writeResult.txStatus}`;
 
     } catch (e: any) {
         console.error(`[ProofOracle] Failed to execute workflow: ${e.message}`);
