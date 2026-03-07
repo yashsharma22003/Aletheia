@@ -1,4 +1,4 @@
-import { CHAINS, ChainInfo } from "@/lib/mock-data";
+import { CHAINS, ChainConfig } from "@/config/contracts";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ChainSelectorProps {
@@ -16,7 +16,7 @@ export function ChainSelector({ value, onChange, label }: ChainSelectorProps) {
           <SelectValue />
         </SelectTrigger>
         <SelectContent className="bg-card border-glass-border">
-          {CHAINS.map((chain: ChainInfo) => (
+          {CHAINS.map((chain: ChainConfig) => (
             <SelectItem key={chain.id} value={String(chain.id)}>
               <span className="flex items-center gap-2">
                 <span>{chain.icon}</span>

@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RedemptionPanel } from "@/components/claim/RedemptionPanel";
-import { Cheque, shortenHash, getChainName } from "@/lib/mock-data";
+import { Cheque, shortenHash, getChainName } from "@/lib/cheque-types";
 import { motion } from "framer-motion";
 import { Banknote, ArrowLeft, User, ShieldCheck } from "lucide-react";
 

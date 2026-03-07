@@ -4,7 +4,7 @@ import { StateRootSyncBadge } from "@/components/shared/StateRootSyncBadge";
 import { AletheiaLogo } from "@/components/shared/AletheiaLogo";
 import { cn } from "@/lib/utils";
 import { Shield, Terminal } from "lucide-react";
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+
 
 const NAV_ITEMS = [
   { path: "/treasury", label: "Treasury", icon: Shield },
@@ -49,8 +49,7 @@ export function AppHeader() {
         {/* Right side */}
         <div className="flex items-center gap-4">
           <StateRootSyncBadge />
-          {/* <WalletButton /> */}
-              <ConnectButton />
+          <WalletButton />
         </div>
       </div>
     </header>

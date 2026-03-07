@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { ComplianceGate } from "@/components/claim/ComplianceGate";
 import { ProvingEngine } from "@/components/claim/ProvingEngine";
 import { findCheque, updateCheque } from "@/lib/cheque-store";
-import { Cheque, shortenHash, getChainName, CHAINS } from "@/lib/mock-data";
+import { Cheque, shortenHash, getChainName } from "@/lib/cheque-types";
+import { CHAINS } from "@/config/contracts";
 import { motion } from "framer-motion";
 import { Cpu, CheckCircle2, ArrowRight, ArrowLeft, Building2, Banknote } from "lucide-react";
 

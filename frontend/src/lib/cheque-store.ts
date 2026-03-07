@@ -1,4 +1,4 @@
-import { Cheque } from "./mock-data";
+import { Cheque } from "./cheque-types";
 
 const STORAGE_KEY = "aletheia_cheques";
 

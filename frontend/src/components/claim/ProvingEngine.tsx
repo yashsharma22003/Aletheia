@@ -4,13 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GeometricLoader } from "@/components/shared/GeometricLoader";
-import { Cheque, shortenHash } from "@/lib/mock-data";
+import { Cheque, shortenHash } from "@/lib/cheque-types";
 import { updateCheque } from "@/lib/cheque-store";
 import { motion, AnimatePresence } from "framer-motion";
 import { Cpu, AlertTriangle, CheckCircle2, Wallet, PenTool, Link2Off, ChevronDown, ChevronUp } from "lucide-react";
 import { useAccount, usePublicClient, useChainId } from "wagmi";
 import { useEffect, useRef } from "react";
-import { CHAINS } from "@/lib/mock-data";
+import { CHAINS } from "@/config/contracts";
 
 interface ProvingEngineProps {
   cheque: Cheque;

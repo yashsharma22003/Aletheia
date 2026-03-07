@@ -3,7 +3,7 @@ import { OverviewPanel } from "@/components/treasury/OverviewPanel";
 import { DepositWidget } from "@/components/treasury/DepositWidget";
 import { ChequeLedger } from "@/components/treasury/ChequeLedger";
 import { loadCheques } from "@/lib/cheque-store";
-import { Cheque } from "@/lib/mock-data";
+import { Cheque } from "@/lib/cheque-types";
 
 export default function Treasury() {
   const [cheques, setCheques] = useState<Cheque[]>(() => loadCheques());

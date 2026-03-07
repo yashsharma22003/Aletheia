@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChainSelector } from "@/components/shared/ChainSelector";
-import { autoBreakAmount, Cheque } from "@/lib/mock-data";
+import { autoBreakAmount, Cheque } from "@/lib/cheque-types";
 import { addCheques } from "@/lib/cheque-store";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, Zap, Wrench, AlertTriangle, Loader2 } from "lucide-react";

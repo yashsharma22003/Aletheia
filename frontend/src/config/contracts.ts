@@ -1,3 +1,19 @@
+/** Full chain metadata including RPC + cashier — used by ChainSelector and ProvingEngine */
+export interface ChainConfig {
+    id: number;
+    name: string;
+    icon: string;
+    rpcUrl: string;
+    cashierAddress: string;
+}
+
+export const CHAINS: ChainConfig[] = [
+    { id: 11155111, name: "Ethereum Sepolia", icon: "ETH", rpcUrl: "https://rpc.sepolia.org", cashierAddress: "0xd32e613a93f8D683A45163692f9B5eFE03E77Ba9" },
+    { id: 11155420, name: "Optimism Sepolia", icon: "OP", rpcUrl: "https://sepolia.optimism.io", cashierAddress: "0xC0d7A1253E9Bc2e3a78A417F2c7B06EdeE525018" },
+    { id: 421614, name: "Arbitrum Sepolia", icon: "ARB", rpcUrl: "https://sepolia-rollup.arbitrum.io/rpc", cashierAddress: "0xf44d925116aD93Ddf3A634eCcFF01a59f4b2679b" },
+    { id: 84532, name: "Base Sepolia", icon: "BASE", rpcUrl: "https://sepolia.base.org", cashierAddress: "0xf44d925116aD93Ddf3A634eCcFF01a59f4b2679b" },
+];
+
 export const TARGET_CHAINS = [
     { id: 11155111, name: "Ethereum Sepolia" },
     { id: 11155420, name: "Optimism Sepolia" },

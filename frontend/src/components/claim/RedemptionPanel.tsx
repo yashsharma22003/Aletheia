@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Cheque, getExplorerUrl, shortenHash } from "@/lib/mock-data";
+import { Cheque, getExplorerUrl, shortenHash } from "@/lib/cheque-types";
 import { motion, AnimatePresence } from "framer-motion";
 import { Banknote, ExternalLink, PartyPopper, Loader2, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { useAccount } from "wagmi";
