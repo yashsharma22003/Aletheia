@@ -10,6 +10,7 @@ Chainlink CRE (Custom Runtime Extension) workflows for the Aletheia Privacy Payr
 | `compliance_oracle` | EVM Log (`ChequeCreated`) | Hits KYC/AML API confidentially inside the DON enclave and marks cheques compliant on the source chain `ComplianceCashier`. |
 | `proof_oracle` | HTTP Trigger | Receives massive 50MB ZK proofs from the Prover Service, **hashes them with keccak256**, and writes ONLY the `bytes32` hash fingerprint to `ProofRegistry` on the target chain. |
 | `verify_oracle` | HTTP Trigger | Receives proof + receiver address from the Prover Service at redemption. It **re-hashes the proof inside the DON enclave**, checks it against `ProofRegistry`, and writes the release report to `ComplianceCashier`. |
+| `rebalance_oracle` | Cron (every 1 hour) | Monitors vault balances across all networks against thresholds, and automatically initiates CCIP transfers to route liquidity from surplus to deficit vaults. |
 
 ## Key Architecture & Cost Optimization
 
@@ -38,6 +39,10 @@ workflows/
 │   ├── workflow.yaml
 │   ├── config.staging.json         
 │   └── src/main.ts                 # keccak256(proof) before encoding report
+├── rebalance_oracle/
+│   ├── workflow.yaml
+│   ├── config.staging.json         
+│   └── src/main.ts                 # cross-chain liquidity routing via CCIP
 └── verify_oracle/
     ├── workflow.yaml
     ├── config.staging.json         
@@ -62,6 +67,7 @@ cd proof_oracle && bun install
 cd ../verify_oracle && npm install
 cd ../compliance_oracle && npm install
 cd ../truth_oracle && npm install
+cd ../rebalance_oracle && bun install
 ```
 
 ### 2. Environment Variables
@@ -92,6 +98,12 @@ cre workflow simulate proof_oracle --target staging-settings -e ../contracts/.en
 cd ../verify_oracle
 # Needs an input payload: { chequeId, proof, recipient, sourceChainId, targetChainId }
 cre workflow simulate verify_oracle --target staging-settings -e ../contracts/.env --broadcast
+```
+
+**Simulate rebalance_oracle (cron execution):**
+```bash
+cd ../rebalance_oracle
+cre workflow simulate rebalance_oracle --target staging-settings -e ../contracts/.env --broadcast
 ```
 
 ## Configuration
