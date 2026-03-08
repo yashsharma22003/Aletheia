@@ -259,4 +259,4 @@ nargo compile
 
 ## Team
 *   **[Yash Sharma]**
-*   **[Full Name]** - [Role / GitHub Link]
+*   **[Uttam Singh]**
