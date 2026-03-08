@@ -105,7 +105,7 @@ export function ProvingEngine({ cheque, onVerified, onSigned }: ProvingEnginePro
     return window.btoa(binary);
   }
 
-  // Sanitize cheque.id — handles full Magic Link URLs, bare 0x hashes, or legacy random IDs
+  // Sanitize cheque.id: handles full Magic Link URLs, bare 0x hashes, or legacy random IDs
   function extractCleanChequeId(): string | undefined {
     const raw = cheque.id?.trim();
     if (!raw) return undefined;
@@ -120,7 +120,7 @@ export function ProvingEngine({ cheque, onVerified, onSigned }: ProvingEnginePro
     const match = raw.match(hexRegex);
     if (match) return `0x${match[1]}`;
 
-    // Otherwise (random mock ID) — let server compute from nonce
+    // Otherwise (random mock ID): let server compute from nonce
     return undefined;
   }
 
@@ -246,7 +246,7 @@ export function ProvingEngine({ cheque, onVerified, onSigned }: ProvingEnginePro
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <Cpu className="w-5 h-5 text-accent" />
-          Step 2 — Proving Engine (Validation)
+          Step 2: Proving Engine (Validation)
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-5 pb-6">

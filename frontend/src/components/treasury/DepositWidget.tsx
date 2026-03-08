@@ -164,7 +164,7 @@ export function DepositWidget({ onMinted }: DepositWidgetProps) {
       <CardHeader className="pb-4">
         <CardTitle className="text-lg flex items-center gap-2">
           <Zap className="w-5 h-5 text-primary" />
-          The Mint — Deposit & Create Cheques
+          The Mint: Deposit & Create Cheques
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">

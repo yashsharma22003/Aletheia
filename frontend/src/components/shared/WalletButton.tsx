@@ -43,7 +43,7 @@ export function WalletButton() {
               </Button>
             ) : (
               <div className="flex items-center gap-1.5">
-                {/* Chain badge — clickable to switch network */}
+                {/* Chain badge: clickable to switch network */}
                 <Button
                   onClick={openChainModal}
                   variant="outline"

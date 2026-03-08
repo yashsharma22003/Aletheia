@@ -9,35 +9,35 @@ import { AletheiaLogo } from "@/components/shared/AletheiaLogo";
 const FEATURES = [
   {
     icon: Lock,
-    title: "Zero-Knowledge Proofs",
-    description: "Validate cheque ownership without revealing sensitive data. Privacy-preserving verification powered by SNARKs.",
+    title: "Zero-Knowledge Privacy",
+    description: "Validate ownership without revealing sensitive data via SNARKs.",
     color: "text-accent",
   },
   {
     icon: Shield,
-    title: "Cross-Chain Settlement",
-    description: "Mint cheques on any supported chain and redeem on another. Trustless bridging via Merkle Patricia Trie proofs.",
+    title: "Chain-Agnostic",
+    description: "Trustless cross-chain settlement via Merkle Patricia Trie proofs.",
     color: "text-primary",
   },
   {
     icon: Eye,
-    title: "Encrypted Compliance",
-    description: "On-chain attestation verification ensures regulatory compliance without compromising user privacy.",
+    title: "Compliance Gate",
+    description: "On-chain attestations ensure regulatory compliance privately.",
     color: "text-accent",
   },
   {
     icon: Zap,
-    title: "Instant Denomination Breaks",
-    description: "Auto-split deposits into standard denominations for optimal liquidity and fungibility.",
+    title: "Auto-Denomination",
+    description: "Instant deposit splitting for optimal liquidity and fungibility.",
     color: "text-primary",
   },
 ];
 
 const STATS = [
-  { label: "Total Value Locked", value: "$2.45M" },
-  { label: "Cheques Minted", value: "156" },
-  { label: "Chains Supported", value: "4" },
-  { label: "Settlements", value: "18" },
+  { label: "Total Value Locked", value: "$0" },
+  { label: "Cheques Minted", value: "0" },
+  { label: "Chains Supported", value: "0" },
+  { label: "Settlements", value: "0" },
 ];
 
 export default function Index() {
@@ -66,7 +66,7 @@ export default function Index() {
             className="text-5xl md:text-6xl font-bold tracking-tight mb-4"
           >
             <span className="text-gradient-green">Trustless</span>{" "}
-            <span className="text-foreground">Cross-Chain</span>
+            <span className="text-foreground">Chain-Agnostic</span>
             <br />
             <span className="text-foreground">Settlement Protocol</span>
           </motion.h1>
@@ -77,8 +77,7 @@ export default function Index() {
             transition={{ delay: 0.25 }}
             className="text-muted-foreground text-lg max-w-xl mb-10"
           >
-            Mint privacy-preserving cheques, validate with zero-knowledge proofs,
-            and settle across chains — all without revealing your identity.
+            Mint privacy-preserving cheques and settle across chains with zero-knowledge proofs.
           </motion.p>
 
           <motion.div
@@ -168,7 +167,7 @@ export default function Index() {
           >
             <h2 className="text-3xl font-bold tracking-tight mb-3">How It Works</h2>
             <p className="text-muted-foreground max-w-md mx-auto">
-              Three distinct phases — mint, prove, and settle — each independently executable.
+              Three distinct phases: mint, prove, and settle.
             </p>
           </motion.div>
 
@@ -177,24 +176,24 @@ export default function Index() {
               {
                 step: "01",
                 icon: Coins,
-                title: "Mint Cheques",
-                desc: "Deposit USDC and mint privacy-preserving cheques with auto-denomination breaking.",
+                title: "Mint",
+                desc: "Deposit USDC and create privacy-preserving cheques.",
                 color: "text-primary",
                 glowClass: "glow-green",
               },
               {
                 step: "02",
                 icon: FileCheck,
-                title: "Validate Proof",
-                desc: "Generate a zero-knowledge proof to verify ownership without revealing your identity.",
+                title: "Prove",
+                desc: "Generate ZK proofs to verify ownership privately.",
                 color: "text-accent",
                 glowClass: "glow-amethyst",
               },
               {
                 step: "03",
                 icon: ArrowRight,
-                title: "Settle Funds",
-                desc: "Redeem validated cheques on any target chain. Funds are released trustlessly.",
+                title: "Settle",
+                desc: "Redeem validated cheques on any target chain.",
                 color: "text-primary",
                 glowClass: "glow-green",
               },

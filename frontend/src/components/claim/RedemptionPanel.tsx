@@ -36,7 +36,7 @@ export function RedemptionPanel({ cheque, onRedeemed }: RedemptionPanelProps) {
     if (address && !recipient) setRecipient(address);
   }, [address, recipient]);
 
-  // Sanitize cheque.id — handles full Magic Link URLs, bare 0x hashes, or legacy random IDs
+  // Sanitize cheque.id: handles full Magic Link URLs, bare 0x hashes, or legacy random IDs
   function extractCleanChequeId(): string {
     const raw = cheque.id;
     if (!raw) return raw;
@@ -116,7 +116,7 @@ export function RedemptionPanel({ cheque, onRedeemed }: RedemptionPanelProps) {
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <Banknote className="w-5 h-5 text-primary" />
-          Step 3 — Redemption (Settlement)
+          Step 3: Redemption (Settlement)
         </CardTitle>
       </CardHeader>
       <CardContent className="pb-6">

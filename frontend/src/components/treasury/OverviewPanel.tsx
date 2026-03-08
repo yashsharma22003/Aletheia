@@ -20,7 +20,7 @@ export function OverviewPanel() {
     ? `$${(tvlRaw / 1000).toFixed(1)}K`
     : tvlRaw > 0
       ? `$${tvlRaw}`
-      : "$—";
+      : "$:";
 
   const stats = [
     { label: "Est. Value Locked", value: tvlFormatted, icon: Lock, color: "text-primary" },

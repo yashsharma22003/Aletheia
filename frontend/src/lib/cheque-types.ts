@@ -1,7 +1,7 @@
 /**
  * cheque-types.ts
  * Canonical type definitions and utility functions for cheques.
- * Previously part of mock-data.ts — all mock constants have been removed.
+ * Previously part of mock-data.ts: all mock constants have been removed.
  */
 
 import { TARGET_CHAINS } from "@/config/contracts";

@@ -1,4 +1,4 @@
-/** Full chain metadata including RPC + cashier — used by ChainSelector and ProvingEngine */
+/** Full chain metadata including RPC + cashier: used by ChainSelector and ProvingEngine */
 export interface ChainConfig {
     id: number;
     name: string;

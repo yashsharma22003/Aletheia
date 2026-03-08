@@ -71,7 +71,7 @@ export default function RedeemPage() {
             <Banknote className="w-7 h-7 text-primary" />
             Redeem Funds
           </h1>
-          <p className="text-muted-foreground text-sm">Settlement via Chainlink Verify Oracle — no proof generation required</p>
+          <p className="text-muted-foreground text-sm">Settlement via Chainlink Verify Oracle: no proof required</p>
         </div>
         <Button asChild variant="ghost" size="sm" className="gap-1.5">
           <Link to="/claim">
@@ -89,9 +89,8 @@ export default function RedeemPage() {
       >
         <ShieldCheck className="w-4 h-4 text-primary mt-0.5 shrink-0" />
         <p className="text-xs text-muted-foreground">
-          <span className="text-primary font-medium">Zero cryptographic burden.</span>{" "}
-          You don't need to generate a proof. The Proof Registry is queried by the Chainlink Verify Oracle inside a hardware enclave.
-          Just provide your Cheque ID below.
+          <span className="text-primary font-medium">Zero-burden redemption.</span>{" "}
+          Verification is handled by the Chainlink Verify Oracle. No proof generation required.
         </p>
       </motion.div>
 
@@ -116,14 +115,14 @@ export default function RedeemPage() {
               </div>
               <div className="flex gap-2">
                 {cheque.redeemed && <Badge className="bg-primary/15 text-primary text-xs">Settled</Badge>}
-                <Badge className="bg-secondary text-muted-foreground text-xs">Employee / Claimant</Badge>
+                <Badge className="bg-secondary text-muted-foreground text-xs">Claimant</Badge>
               </div>
             </CardContent>
           </Card>
         </motion.div>
       )}
 
-      {/* RedemptionPanel — always shown, no gating on proven state */}
+      {/* RedemptionPanel: always shown */}
       {cheque && (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
           <RedemptionPanel cheque={cheque} onRedeemed={onRedeemed} />

@@ -118,7 +118,7 @@ export default function ProvePage() {
                   <p className="text-sm">{getChainName(cheque.targetChainId)}</p>
                 </div>
               </div>
-              <Badge className="bg-accent/15 text-accent text-xs">Employer / Prover</Badge>
+              <Badge className="bg-accent/15 text-accent text-xs">Prover</Badge>
             </CardContent>
           </Card>
         </motion.div>

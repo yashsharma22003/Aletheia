@@ -153,8 +153,7 @@ export default function ClaimTerminal() {
         <div>
           <p className="text-sm font-medium">Decoupled Proving Model</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Proving (ZK proof generation) and Redemption (settlement) are separate operations by design.
-            Employers generate proofs using server-grade infrastructure. Employees redeem independently with just a Cheque ID.
+            Proving and Redemption are separate operations. Provers generate proofs on server-grade infrastructure; Claimants redeem independently.
           </p>
         </div>
       </motion.div>
@@ -166,11 +165,11 @@ export default function ClaimTerminal() {
           icon={Building2}
           iconColor="bg-accent/10 text-accent"
           borderHover="border-accent/50"
-          badge="Employer / Prover"
+          badge="Prover"
           badgeClass=""
           title="Prover Portal"
           subtitle="Generate & submit ZK proof"
-          description="You have server-grade infrastructure. Sign the cheque binding, generate the ~50 MB zk-SNARK proof via Barretenberg, and submit it to the Proof Registry via Chainlink CRE."
+          description="Generate and submit ZK proofs via Chainlink CRE using server-grade infrastructure."
           placeholder="Cheque ID (0x...) or Magic Link URL"
           btnLabel="Open Prover Portal"
           btnClass="bg-accent text-accent-foreground hover:bg-accent/90 glow-amethyst"
@@ -183,11 +182,11 @@ export default function ClaimTerminal() {
           icon={User}
           iconColor="bg-primary/10 text-primary"
           borderHover="border-primary/50"
-          badge="Employee / Claimant"
+          badge="Claimant"
           badgeClass=""
           title="Claimant Portal"
           subtitle="Redeem your cheque"
-          description="Zero cryptographic burden. Paste your Cheque ID or Magic Link — the settlement is handled entirely by the Chainlink Verify Oracle inside a hardware enclave. No wallet signature, no proof generation."
+          description="Zero-burden settlement. Redemption is handled entirely by the Chainlink Verify Oracle enclave. No proof generation required."
           placeholder="Cheque ID (0x...) or Magic Link URL"
           btnLabel="Open Claimant Portal"
           btnClass="glow-green"
@@ -204,9 +203,9 @@ export default function ClaimTerminal() {
         className="grid grid-cols-1 md:grid-cols-3 gap-3"
       >
         {[
-          { icon: Building2, label: "Prover (Employer)", desc: "Signs & generates proof on server infrastructure" },
+          { icon: Building2, label: "Prover", desc: "Signs & generates proof on server infrastructure" },
           { icon: Cpu, label: "Verifier (Chainlink)", desc: "Validates proof hash inside DON enclave" },
-          { icon: User, label: "Claimant (Employee)", desc: "Submits chequeId — no compute required" },
+          { icon: User, label: "Claimant", desc: "Submits chequeId: no compute required" },
         ].map(({ icon: Icon, label, desc }, i) => (
           <div key={label} className="p-3 rounded-lg border border-glass-border bg-secondary/20 flex items-start gap-2.5">
             <Icon className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />

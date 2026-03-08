@@ -52,7 +52,7 @@ export function ComplianceGate({ chequeId, chainId, cashierAddress, onPassed }: 
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <ShieldCheck className="w-5 h-5 text-accent" />
-          Step 1 — Compliance Gate
+          Step 1: Compliance Gate
         </CardTitle>
       </CardHeader>
       <CardContent className="pb-6">
@@ -84,7 +84,7 @@ export function ComplianceGate({ chequeId, chainId, cashierAddress, onPassed }: 
               <div>
                 <p className="text-sm font-medium text-primary">Compliance attestation verified on-chain</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Chainlink CRE successfully updated compliance status — proceeding to proof generation.
+                  Chainlink CRE successfully updated compliance status: proceeding to proof generation.
                 </p>
               </div>
             </>
