@@ -1,33 +1,70 @@
 # Aletheia Contracts
 
-Solidity smart contracts for the Aletheia Privacy Payroll Protocol, built with [Foundry](https://book.getfoundry.sh/).
+Solidity smart contracts for the Aletheia Privacy Payroll Protocol, managed and built with [Foundry](https://book.getfoundry.sh/).
 
-## Contracts
+## Architecture & Contracts
 
 | Contract | Description |
 |----------|-------------|
-| `ComplianceCashier.sol` | Source chain entry point. Accepts employer deposits, issues cheques, and releases funds upon verified redemption. |
-| `Vault.sol` | Custodies ERC20 tokens and executes CCIP cross-chain rebalancing. |
-| `ProofRegistry.sol` | Target chain registry that stores **keccak256 hashes** of ZK proofs keyed by `chequeId`. Stores a `bytes32` hash only — not the full proof — to keep gas costs minimal (~20K gas vs ~10M for raw bytes). |
-| `TruthRegistry.sol` | Stores state roots per chain/block for cross-chain state verification. |
-| `ReceiverTemplate.sol` | Abstract base for CRE consumer contracts. Handles forwarder validation and ERC165. |
+| `ComplianceCashier.sol` | Source chain entry point. Accepts employer deposits, issues cheques, and safely releases funds during the `verify_oracle` callback. |
+| `Vault.sol` | Custodies ERC20 tokens and executes Chainlink CCIP cross-chain message generation and rebalancing. |
+| `ProofRegistry.sol` | Target chain registry. It stores the **keccak256 hash** of ZK proofs keyed by `chequeId`, to verify proof existence later. |
+| `TruthRegistry.sol` | Stores state roots per chain/block for cross-chain state verification (Storage Proofs). |
+| `ReceiverTemplate.sol` | Abstract base for Chainlink CRE consumer contracts. Handles Keystone forwarder validation and ERC165 setup. |
 
-### ProofRegistry — Hash Storage Design
+### ProofRegistry Hash Storage Design (Optimization)
 
-Storing a raw ~16KB ZK proof in contract storage costs **10M+ gas** per write. `ProofRegistry` instead stores `keccak256(proof)` — a single 32-byte slot.
+A raw ~16KB ZK proof in Ethereum contract storage would cost **10M+ gas** per write. Aletheia optimizes this:
+- The `proof_oracle` CRE workflow calculates `keccak256(proof)` inside the DON enclave.
+- It writes **only the 32-byte hash** to `ProofRegistry.proofHashes[chequeId]` (costing ~20K gas).
+- During redemption, the `verify_oracle` re-hashes the raw proof and asserts that it matches the stored 32-byte hash.
 
+## Getting Started
+
+### Prerequisites
+
+You must have [Foundry / Forge](https://book.getfoundry.sh/) installed.
+
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
 ```
-proof_oracle workflow: keccak256(proof) → ProofRegistry.proofHashes[chequeId]
-verify_oracle workflow: keccak256(proof supplied in calldata) == proofHashes[chequeId] → release funds
+
+### Installation & Build
+
+Install the necessary git submodules and compile the smart contracts:
+
+```bash
+cd contracts
+forge install
+forge build
 ```
 
-Public interface:
-- `proofHashes(bytes32 chequeId) → bytes32` — the stored hash
-- `verifyProof(bytes32 chequeId, bytes proof) → bool` — re-hashes and checks on-chain
+### Running Tests
+
+Run the Foundry test suite to execute unit tests and protocol invariants.
+
+```bash
+forge test
+# or with verbosity for debugging
+forge test -vvv
+```
 
 ## Deployment
 
-### OP Sepolia (Staging)
+### Environment Setup
+
+Create an `.env` file referencing `.env.example`:
+
+```bash
+cp .env.example .env
+```
+Fill in the following variables:
+- `PRIVATE_KEY`: Delpoyer's private key
+- `OP_SEPOLIA_RPC_URL`: RPC endpoint for Optimism Sepolia
+- `ETH_SEPOLIA_RPC_URL`: RPC endpoint for Ethereum Sepolia
+
+### Deploying to Testnet (OP Sepolia)
 
 ```bash
 source .env
@@ -45,7 +82,7 @@ forge script script/DeployVaultOP.s.sol \
   --broadcast -vvv
 ```
 
-### Deployed Addresses
+### Known Staging Deployed Addresses
 
 | Network | Contract | Address |
 |---------|----------|---------|
@@ -53,10 +90,3 @@ forge script script/DeployVaultOP.s.sol \
 | OP Sepolia | MockKeystoneForwarder | `0xA2888380dFF3704a8AB6D1CD1A8f69c15FEa5EE3` |
 | Ethereum Sepolia | TruthRegistry | `0x9FcdD7C57C515B5aec910e7E7B6B0d62A09000bd` |
 | Ethereum Sepolia | MockKeystoneForwarder | `0x15fC6ae953E024d975e77382eEeC56A9101f9F88` |
-
-## Build & Test
-
-```bash
-forge build
-forge test
-```

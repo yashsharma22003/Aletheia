@@ -1,50 +1,31 @@
 # Aletheia Workflows
 
-Chainlink CRE workflows for the Aletheia Privacy Payroll Protocol. Each workflow is an autonomous DON program that listens for triggers and writes verified reports back on-chain.
+Chainlink CRE (Custom Runtime Extension) workflows for the Aletheia Privacy Payroll Protocol. Each workflow is an autonomous DON program that listens for triggers and writes verified cryptographic reports back on-chain.
 
 ## Workflow Overview
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| `truth_oracle` | Cron (every 30 min) | Fetches block headers from source chains and writes state roots to `TruthRegistry` |
-| `compliance_oracle` | EVM Log (`ChequeCreated`) | Hits KYC/AML API confidentially and marks cheques compliant on `ComplianceCashier` |
-| `proof_oracle` | HTTP Trigger | Receives ZK proof from Prover Service, **hashes it with keccak256**, writes `bytes32` hash to `ProofRegistry` |
-| `verify_oracle` | HTTP Trigger | Receives proof + recipient from Prover Service at redemption, **re-hashes inside DON enclave**, writes release report to `ComplianceCashier` |
+| `truth_oracle` | Cron (every 30 min) | Fetches block headers from source chains and writes MPT state roots to `TruthRegistry` to synchronize state across chains. |
+| `compliance_oracle` | EVM Log (`ChequeCreated`) | Hits KYC/AML API confidentially inside the DON enclave and marks cheques compliant on the source chain `ComplianceCashier`. |
+| `proof_oracle` | HTTP Trigger | Receives massive 50MB ZK proofs from the Prover Service, **hashes them with keccak256**, and writes ONLY the `bytes32` hash fingerprint to `ProofRegistry` on the target chain. |
+| `verify_oracle` | HTTP Trigger | Receives proof + receiver address from the Prover Service at redemption. It **re-hashes the proof inside the DON enclave**, checks it against `ProofRegistry`, and writes the release report to `ComplianceCashier`. |
 
-## Architecture
+## Key Architecture & Cost Optimization
 
-```
-[Employer deposits]
-        ↓
-ComplianceCashier → ChequeCreated event
-        ↓
-compliance_oracle (KYC/AML check)
-        ↓
-ComplianceCashier.isCompliant = true
+A raw ~16KB ZK SNARK proof costs **over 10,000,000 gas** to store in Ethereum contract storage directly.
 
-[Prover Service generates ZK proof]
-        ↓
-proof_oracle (keccak256(proof) → ProofRegistry on target chain)
-
-[Employee redeems via Magic Link]
-        ↓
-verify_oracle (re-hash inside DON, verify == ProofRegistry hash → release funds)
-```
-
-### Why proof_oracle stores a hash, not the full proof
-
-A raw ~16KB ZK proof costs **10M+ gas** to store in contract storage. `proof_oracle` instead:
-1. Computes `keccak256(proof)` inside the Chainlink node
-2. Writes only the 32-byte hash to `ProofRegistry` (~20K gas)
-
-At redemption, `verify_oracle` re-hashes the proof supplied in calldata within the DON enclave and verifies it matches the registered hash — trustless and tamper-proof.
+The `proof_oracle` acts as an ingenious optimization:
+1. It computes `keccak256(proof)` *inside* the Chainlink DON securing the enclave.
+2. It writes only the 32-byte hash fingerprint to `ProofRegistry` (~20,000 gas, saving thousands of dollars per transaction).
+3. At redemption, the `verify_oracle` re-hashes the proof supplied in calldata within the DON enclave and verifies it matches the registered hash, ensuring it's trustless and tamper-proof.
 
 ## Project Structure
 
-```
+```text
 workflows/
 ├── project.yaml                    # CRE project config (RPCs, targets)
-├── .env                            # CRE_ETH_PRIVATE_KEY (not committed)
+├── .env                            # CRE_ETH_PRIVATE_KEY (required for simulating)
 ├── truth_oracle/
 │   ├── workflow.yaml
 │   ├── config.staging.json
@@ -55,63 +36,66 @@ workflows/
 │   └── src/main.ts
 ├── proof_oracle/
 │   ├── workflow.yaml
-│   ├── config.staging.json         # registryAddress for each chain
+│   ├── config.staging.json         
 │   └── src/main.ts                 # keccak256(proof) before encoding report
 └── verify_oracle/
     ├── workflow.yaml
-    ├── config.staging.json         # registryAddress + cashierAddress per chain
+    ├── config.staging.json         
     └── src/main.ts                 # re-hash proof, write release report
 ```
 
-## Quick Start
+## Getting Started
 
 ### Prerequisites
 
-- [CRE CLI](https://docs.chain.link/cre) installed globally
-- [Bun](https://bun.sh) or Node.js runtime
-- A funded Sepolia/OP Sepolia wallet
+- [Chainlink CRE CLI](https://docs.chain.link/cre) installed globally.
+- [Bun](https://bun.sh) or Node.js runtime.
+- A funded wallet for deploying to EVM Sepolia/OP Sepolia.
 
-### Setup
+### 1. Installation
+
+Install the Node.js packages inside each workflow directory:
 
 ```bash
-# Install deps for each workflow
+cd workflows
 cd proof_oracle && bun install
 cd ../verify_oracle && npm install
+cd ../compliance_oracle && npm install
+cd ../truth_oracle && npm install
 ```
 
-Set your private key in `workflows/.env`:
-```
-CRE_ETH_PRIVATE_KEY=<your_funded_key>
-```
+### 2. Environment Variables
 
-### Simulate
+Set your deployment private key in the base `workflows` folder by creating a `.env`:
 
 ```bash
-# Simulate proof_oracle (stores keccak256(proof) on-chain)
-cd proof_oracle
-cre workflow simulate proof_oracle --target staging-settings -e ../contracts/.env --broadcast
-# Input: /tmp/oracle_payload.json  { chequeId, proof, targetChainId }
+cp .env.example .env
+```
+Ensure you set:
+```env
+CRE_ETH_PRIVATE_KEY=0xYourFundedPrivateKeyHere
+```
 
-# Simulate verify_oracle (re-hash + release funds via ComplianceCashier)
+### 3. Simulating Oracles (Local Execution)
+
+You can run individual workflows locally to test the CRE logic against actual deployed contracts.
+
+**Simulate proof_oracle (generates fingerprint):**
+```bash
+cd proof_oracle
+# Needs a JSON payload: { chequeId, proof, targetChainId }
+cre workflow simulate proof_oracle --target staging-settings -e ../contracts/.env --broadcast
+```
+
+**Simulate verify_oracle (releases funds):**
+```bash
 cd ../verify_oracle
+# Needs an input payload: { chequeId, proof, recipient, sourceChainId, targetChainId }
 cre workflow simulate verify_oracle --target staging-settings -e ../contracts/.env --broadcast
-# Input: { chequeId, proof, recipient, sourceChainId, targetChainId }
 ```
 
 ## Configuration
 
-| File | Purpose |
-|------|---------|
-| `project.yaml` | Global RPCs and target definitions |
-| `workflow.yaml` | Per-target workflow name, paths, and RPC overrides |
-| `config.staging.json` | Chain IDs, names, contract addresses for staging |
-| `.env` | `CRE_ETH_PRIVATE_KEY` for broadcasting |
-
-## Deployed Contracts
-
-| Network | Contract | Address |
-|---------|----------|---------|
-| OP Sepolia | ProofRegistry | `0x5725706D4eBa77F5fad3f64f1Bc9EA9E073B60c4` |
-| OP Sepolia | MockKeystoneForwarder | `0xA2888380dFF3704a8AB6D1CD1A8f69c15FEa5EE3` |
-| Ethereum Sepolia | TruthRegistry | `0x9FcdD7C57C515B5aec910e7E7B6B0d62A09000bd` |
-| Ethereum Sepolia | MockKeystoneForwarder | `0x15fC6ae953E024d975e77382eEeC56A9101f9F88` |
+- `project.yaml`: Global RPC endpoints and workflow definitions.
+- `workflow.yaml`: Execution setup and targets for each specific workflow.
+- `config.staging.json`: Contract definitions for that specific piece of the topology.

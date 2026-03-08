@@ -3,6 +3,9 @@ version: 0.1.0
 workflows:
   - ./truth_oracle
   - ./rebalance_oracle
+  - ./compliance_oracle
+  - ./proof_oracle
+  - ./verify_oracle
 rpcs:
   - chain-name: ethereum-testnet-sepolia
     url: https://ethereum-sepolia-rpc.publicnode.com
@@ -17,3 +20,4 @@ rpcs:
 targets:
   staging:
     config: ./truth_oracle/config.staging.json
+    
