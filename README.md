@@ -176,6 +176,26 @@ Our planned migration path is as follows:
 4. **Adopting the "Confidential Connectivity" Pattern**: As outlined in section 4.1 of the CC whitepaper, we will use Town Crier architectural principles to inject KYC API keys directly into the CC enclave, fully replacing our current Confidential HTTP workarounds.
 5. **Zero-Knowledge Attestation & Recursive Proving**: As detailed in section 3.3 of the CC architecture, we will leverage CC's Zero-Knowledge Attestation. By combining CC with advanced recursive proofs, we can compress our massive Zero-Knowledge computations into lightweight proofs, reducing on-chain verification costs while maintaining mathematically guaranteed integrity.
 
+### Step-by-Step Developer Migration Guide
+
+When Chainlink Confidential Compute becomes publicly available, developers will execute the following steps to migrate Aletheia from its current mock-TEE state to full production on mainnet:
+
+#### Phase 1: Smart Contract Upgrades
+1. **Attestation Verification**: Upgrade the `ProofRegistry` and `Vault` smart contracts to store and recognize the CC DON's public key. Update the verification logic to require a valid CC enclave attestation signature alongside the compressed zero-knowledge proof or withdrawal release.
+2. **Deprecate Legacy Access Controls**: Remove the specific EOA wallet whitelists currently used for the mock TEE operators. Access will be decentralized and governed purely by enclave attestation mathematically proving the correct code was executed.
+
+#### Phase 2: Enclave Workload Packaging
+1. **WASM/Docker Porting**: Extract the core business logic from the current Prover Service (Noir `nargo` execution, witness generation) and the Verification Service. Package these Node.js/Rust components into a CC-compatible lightweight Docker container or WASM binary.
+2. **Workload Registration**: Upload the packaged Aletheia prover workload to the Chainlink CC registry to generate a unique `workloadId` representing the immutable code hash.
+
+#### Phase 3: Client-Side (Frontend) Threshold Encryption
+1. **Threshold Key Integration**: Update the React frontend to fetch the CC DON's master threshold public key via the official Chainlink SDK upon initialization.
+2. **Encrypting Payloads**: Modify the deposit and withdrawal workflows. Before any sensitive data (employee KYC details, unhashed secrets, or withdrawal signatures) leaves the browser, it must be encrypted using the CC DON's threshold public key. The encrypted payload is then sent on-chain or off-chain, ensuring only the target enclave can decrypt it.
+
+#### Phase 4: Workflow Consolidation & Secrets Injection
+1. **Unified CRE Manifest**: Replace the distinct `compliance_oracle.yaml`, `proof_oracle.yaml`, and `verify_oracle.yaml` files with a single Confidential Workflow manifest. The new workflow will automatically trigger, securely decrypt the payload inside the enclave, run the compliance checks and Noir generation together, and push the final proof hash on-chain.
+2. **Secrets Management**: Securely load our external KYC API routing keys into the Chainlink Secrets system. Scope the API keys precisely to our specific `workloadId`, adopting the Confidential Connectivity pattern to allow the enclave to interact directly with web APIs without relying on intermediary HTTP workarounds.
+
 ---
 
 ## Supported Chains (MPT Storage Proofs)
@@ -244,8 +264,8 @@ As Aletheia grows, we plan to expand this privacy protocol far beyond just payro
 *(Detailed installation and configuration instructions to be added)*
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/aletheia.git
-cd aletheia
+git clone https://github.com/yashsharma22003/Aletheia.git
+cd Aletheia
 
 # Install dependencies
 npm install
