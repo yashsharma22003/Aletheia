@@ -79,3 +79,21 @@ cd /home/yash/Convergence/aletheiaOld/workflows/truth_oracle
 cre workflow simulate truth_oracle --target staging-settings -e ../../contracts/.env --broadcast
 ```
 *(If prompted, select the cron trigger. If it's the only trigger, it will just execute immediately).*
+
+## 5. Rebalance Oracle (Cron Trigger)
+Monitors liquidity levels across all vaults on different chains and automatically rebalances funds when thresholds are exceeded. Runs every hour to check for surplus and deficit vaults.
+
+**Run / Simulate:**
+```bash
+cd /home/yash/Convergence/aletheiaOld/workflows/rebalance_oracle
+cre workflow simulate rebalance_oracle --target staging-settings -e ../../contracts/.env --broadcast
+```
+*(If prompted, select the cron trigger. If it's the only trigger, it will just execute immediately).*
+
+**Alternative Local Development:**
+```bash
+cd /home/yash/Convergence/aletheiaOld/workflows/rebalance_oracle
+bun install
+bun run start
+```
+*(This runs the oracle locally in development mode without broadcasting to chain).*

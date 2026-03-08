@@ -160,8 +160,8 @@ export default function ProvePage() {
             <motion.div key="compliance" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
               <ComplianceGate
                 chequeId={cheque.id}
-                chainId={chain}
-                cashierAddress={CHAINS.find(c => c.id === chain)?.cashierAddress || "0x00...00"}
+                chainId={schain}
+                cashierAddress={CHAINS.find(c => c.id === schain)?.cashierAddress || "0x00...00"}
                 onPassed={onCompliancePassed}
               />
             </motion.div>

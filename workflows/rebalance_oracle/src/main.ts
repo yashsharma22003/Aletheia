@@ -183,10 +183,7 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
     // Transfer amount is the minimum between what the sender can spare, and what the receiver needs.
     const transferAmount = maxSurplusAmount < maxDeficitAmount ? maxSurplusAmount : maxDeficitAmount;
 
-    console.log(`[RebalanceOracle] ROUTING DECISION:`);
-    console.log(`[RebalanceOracle] Source: ${maxSurplusVault.chainInfo.chainName} (${maxSurplusAmount} Surplus)`);
-    console.log(`[RebalanceOracle] Dest:   ${maxDeficitVault.chainInfo.chainName} (${maxDeficitAmount} Deficit)`);
-    console.log(`[RebalanceOracle] Amount: ${transferAmount} units`);
+    console.log(`[RebalanceOracle] ROUTING DECISION | Source: ${maxSurplusVault.chainInfo.chainName} (${maxSurplusAmount} Surplus) -> Dest: ${maxDeficitVault.chainInfo.chainName} (${maxDeficitAmount} Deficit) | Amount: ${transferAmount}`);
 
     try {
         const rebalancePayload = encodeFunctionData({
@@ -232,7 +229,7 @@ const initWorkflow = (config: Config) => {
         throw new Error("No chains found with a valid 'vaultAddress' to monitor.");
     }
 
-    console.log(`Initializing cron smart-rebalance workflow monitoring ${validVaults.length} vaults.`);
+    console.log(`[RebalanceOracle] Initializing cron workflow monitoring ${validVaults.length} vaults.`);
 
     // Create the trigger - fires every 1 hour (configurable based on needs)
     const cronTrigger = new CronCapability().trigger({

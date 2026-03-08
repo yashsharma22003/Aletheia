@@ -4,7 +4,11 @@
     "main": "dist/main.js",
     "private": true,
     "scripts": {
-        "postinstall": "bun x cre-setup"
+        "postinstall": "bun x cre-setup",
+        "start": "bun run src/main.ts",
+        "dev": "bun --watch run src/main.ts",
+        "build": "bun build src/main.ts --outdir dist --target node",
+        "run:oracle": "bun run src/main.ts"
     },
     "license": "UNLICENSED",
     "dependencies": {

@@ -29,7 +29,7 @@ type ProofPayload = {
 
 // 2. HTTP Trigger Handler
 const onHttpTrigger = (runtime: Runtime<Config>, requestPayload: any): string => {
-    console.log(`[ProofOracle] Received HTTP Trigger with payload:`, JSON.stringify(requestPayload));
+    console.log(`[ProofOracle] Received HTTP Trigger. Parsing payload...`);
 
     // The CRE Simulator CLI parses the JSON directly.
     // In production, the HTTP trigger may pass it differently depending on exact node version.
@@ -158,8 +158,7 @@ const onHttpTrigger = (runtime: Runtime<Config>, requestPayload: any): string =>
                 : bytesToHex(writeResult.txHash as Uint8Array))
             : '(not available in simulation dry-run)';
 
-        console.log(`[ProofOracle] ✅ Tx Hash: ${txHashHex}`);
-        console.log(`[ProofOracle] ✅ Tx Status: ${writeResult.txStatus}`);
+        console.log(`[ProofOracle] ✅ Tx Success | Hash: ${txHashHex} | Status: ${writeResult.txStatus}`);
 
         return `Success: Proof hash registered. Hash: ${proofHash}. Tx Hash: ${txHashHex}. Tx Status: ${writeResult.txStatus}`;
 

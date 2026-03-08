@@ -113,10 +113,8 @@ const onHttpTrigger = (runtime: Runtime<Config>, requestPayload: any): string =>
     const proofHex: Hex = proof.startsWith('0x') ? proof as Hex : `0x${proof}`;
     const proofHash = keccak256(proofHex);
 
-    console.log(`[VerifyOracle] Cheque: ${chequeId}`);
+    console.log(`[VerifyOracle] Verification Request | Cheque: ${chequeId} | Recipient: ${recipient} | Amount: ${amount}`);
     console.log(`[VerifyOracle] Computed proof hash: ${proofHash}`);
-    console.log(`[VerifyOracle] Recipient: ${recipient}`);
-    console.log(`[VerifyOracle] Amount: ${amount}`);
 
     const targetChain = runtime.config.chains.find(c => c.chainId === targetChainId.toString());
     const sourceChain = runtime.config.chains.find(c => c.chainId === sourceChainId.toString());

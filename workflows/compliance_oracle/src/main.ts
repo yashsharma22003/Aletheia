@@ -107,8 +107,8 @@ const createLogTrigger = (sourceChain: Config['chains'][0]) => {
         let decodedEvent;
         try {
             decodedEvent = decodeLog(log);
-        } catch (e) {
-            console.error("Failed to decode log:", e);
+        } catch (e: any) {
+            console.error(`[ComplianceOracle] Failed to decode log: ${e?.message || e}`);
             return "Error: Failed to decode log";
         }
 
@@ -181,7 +181,7 @@ const initWorkflow = (config: Config) => {
         throw new Error("No chains found with a valid 'chequeContractAddress' to listen on.");
     }
 
-    console.log(`Initializing compliance workflow for ${validChains.length} chains: ${validChains.map(c => c.chainName).join(', ')}`);
+    console.log(`[ComplianceOracle] Initializing workflow for ${validChains.length} chains: ${validChains.map(c => c.chainName).join(', ')}`);
 
     return validChains.map(chain => {
         const network = getNetwork({
