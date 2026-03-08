@@ -41,7 +41,7 @@ Public blockchains naturally want to show everyone's data. To stay legally compl
 To prove an employee is owed money without revealing who they are, the system uses a Zero-Knowledge (ZK) Proof. But making this proof involves complex math that creates a massive 50MB file, enough to freeze most computers and cost thousands in blockchain gas fees.
 
 *   **The Problem:** Blockchains are too slow and expensive to store massive 50MB proof files.
-*   **The Aletheia Solution:** We move the heavy lifting off the blockchain. The employer's secure backend generates the massive 50MB proof and saves it privately. Then, Chainlink steps in again. It takes that massive proof, shrinks it down into a tiny 32-byte "fingerprint" (a hash), and sends *only* that tiny fingerprint over to the destination blockchain using Chainlink CCIP. 
+*   **The Aletheia Solution:** We move the heavy lifting off the blockchain. The employer's secure backend generates the massive 50MB proof and saves it privately. Then, Chainlink steps in again. It takes that massive proof, shrinks it down into a tiny 32-byte "fingerprint" (a hash), and sends *only* that tiny fingerprint over to the destination blockchain using Chainlink CRE Service. 
 
 ![Phase 2: ZK Proving and Proof Registration](./diagrams/proving_proofOracle.png)
 
